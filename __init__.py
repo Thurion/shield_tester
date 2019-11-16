@@ -427,7 +427,7 @@ class LoadOut(object):
         """
         if self.boosters and len(self.boosters) > 0:
             return self.calculate_total_values(*ShieldBoosterVariant.calculate_booster_bonuses(self.boosters))
-        return None
+        return self.calculate_total_values(1, 1, 1, 1)
 
     # noinspection PyProtectedMember
     def calculate_total_values(self, exp_modifier, kin_modifier, therm_modifier, hitpoint_bonus) -> Tuple[float, float, float, float]:
@@ -644,7 +644,7 @@ class ShieldTester(object):
     def use_short_list(self, value: bool):
         if self.__test_case and self.__use_short_list != value:
             self.__use_short_list = value
-            self.__test_case.shield_booster_variants = copy.deepcopy(self.__find_boosters_to_test())
+            self.__test_case.shield_booster_variants = self.__find_boosters_to_test()
 
     @property
     def cpu_cores(self) -> int:
@@ -671,7 +671,7 @@ class ShieldTester(object):
     def use_prismatics(self, value: bool):
         if self.__test_case and self.__test_case._use_prismatics != value:
             self.__test_case._use_prismatics = value
-            self.__test_case.loadout_list = copy.deepcopy(self.__create_loadouts())
+            self.__test_case.loadout_list = self.__create_loadouts()
 
     @property
     def number_of_tests(self) -> int:
@@ -685,33 +685,34 @@ class ShieldTester(object):
             return int(result * len(self.__test_case.loadout_list))
         return 0
 
-    @staticmethod
-    def write_log(test_case: TestCase, result: TestResult, filename=None, coriolis_url: str = None):
+    def write_log(self, test_case: TestCase, result: TestResult, filename: str = None, time_and_name: bool = False, include_coriolis: bool = False):
         """
         Write a log file with the test setup from a TestCase and the results from a TestResult.
         :param test_case: TestCase for information about setup
         :param result: TestResult for information about results
         :param filename: optional filename to append new log (omit file ending)
-        :param coriolis_url: optional link to Coriolis
+        :param include_coriolis: optional link to Coriolis
         """
         os.makedirs(ShieldTester.LOG_DIRECTORY, exist_ok=True)
         if not filename:
             filename = time.strftime("%Y-%m-%d %H.%M.%S")
+        elif time_and_name:
+            filename = "{name} {time}".format(name=filename, time=time.strftime("%Y-%m-%d %H.%M.%S"))
         with open(os.path.join(ShieldTester.LOG_DIRECTORY, filename + ".txt"), "a+") as logfile:
             logfile.write("Test run at: {}\n".format(time.strftime("%Y-%m-%d %H:%M:%S")))
             logfile.write(test_case.get_output_string())
             logfile.write("\n")
             logfile.write(result.get_output_string(test_case.guardian_hitpoints))
-            if coriolis_url:
+            if include_coriolis:
                 logfile.write("\n")
-                logfile.write(coriolis_url)
                 logfile.write("\n")
+                logfile.write(self.get_coriolis_link(result.best_loadout))
 
             logfile.write("\n\n\n")
             logfile.flush()
 
     def __find_boosters_to_test(self) -> List[ShieldBoosterVariant]:
-        return list(filter(lambda x: not (x.can_skip and self.__use_short_list), self.__booster_variants))
+        return copy.deepcopy(list(filter(lambda x: not (x.can_skip and self.__use_short_list), self.__booster_variants)))
 
     def __create_loadouts(self) -> List[LoadOut]:
         """
@@ -723,15 +724,15 @@ class ShieldTester(object):
             module_class = self.__test_case.ship.highest_internal
 
             shield_generators = list()
-            shield_generators += self.__shield_generators.get(ShieldGenerator.TYPE_BIWEAVE).get(module_class)
-            shield_generators += self.__shield_generators.get(ShieldGenerator.TYPE_NORMAL).get(module_class)
+            shield_generators += self.__shield_generators[ShieldGenerator.TYPE_BIWEAVE][module_class]
+            shield_generators += self.__shield_generators[ShieldGenerator.TYPE_NORMAL][module_class]
             # noinspection PyProtectedMember
             if self.__test_case._use_prismatics:
-                shield_generators += self.__shield_generators.get(ShieldGenerator.TYPE_PRISMATIC).get(module_class)
+                shield_generators += self.__shield_generators[ShieldGenerator.TYPE_PRISMATIC][module_class]
 
             for sg in shield_generators:
                 loadouts_to_test.append(LoadOut(sg, self.__test_case.ship))
-        return loadouts_to_test
+        return copy.deepcopy(loadouts_to_test)
 
     def get_default_shield_generator_of_variant(self, sg_variant: ShieldGenerator) -> Optional[ShieldGenerator]:
         """
@@ -761,13 +762,18 @@ class ShieldTester(object):
             print("Can't test nothing")
             return
 
-        print(test_case.get_output_string())
+        if not queue:
+            print(test_case.get_output_string())
 
         self.__runtime = time.time()
         output = list()
 
+        # ensure booster amount is valid
+        booster_amount = test_case.number_of_boosters_to_test
+        booster_amount = max(0, min(test_case.ship.utility_slots, booster_amount))
         # use built in itertools and assume booster ids are starting at 1 and that there are no gaps
-        booster_combinations = list(itertools.combinations_with_replacement(range(0, len(test_case.shield_booster_variants)), test_case.number_of_boosters_to_test))
+        booster_combinations = list(itertools.combinations_with_replacement(range(0, len(test_case.shield_booster_variants)), booster_amount))
+
         output.append("------------ TEST RUN ------------")
         output.append("        Shield Booster Count: [{0}]".format(test_case.number_of_boosters_to_test))
         output.append("   Shield Generator Variants: [{0}]".format(len(test_case.loadout_list)))
@@ -779,7 +785,8 @@ class ShieldTester(object):
             message_queue.put("\n".join(output))
             if callback:
                 callback(ShieldTester.CALLBACK_MESSAGE)
-        print("\n".join(output))  # in case there is a console
+        else:
+            print("\n".join(output))  # in case there is a console
         output = list()
 
         best_result = TestResult(best_survival_time=0)
@@ -843,9 +850,9 @@ class ShieldTester(object):
             message_queue.put("\n".join(output))
             if callback:
                 callback(ShieldTester.CALLBACK_MESSAGE)
-        print("\n".join(output))  # in case there is a console
-
-        print(best_result.get_output_string(test_case.guardian_hitpoints))
+        else:
+            print("\n".join(output))  # in case there is a console
+            print(best_result.get_output_string(test_case.guardian_hitpoints))
 
         return best_result
 
@@ -874,12 +881,20 @@ class ShieldTester(object):
             return self.__test_case
         return None
 
-    def select_ship(self, name: str):
+    def select_ship(self, name: str) -> bool:
+        """
+        Select a ship by its name. Get names from the property ship_names.
+        This creates a new TestCase with the selected ship and the highest possible shield generator variants pre-selected.
+        :param name: Name of the ship
+        :return: True if loaded successfully, False otherwise
+        """
         if name in self.__ships:
-            self.__test_case = TestCase(copy.deepcopy(self.__ships.get(name)))
-            self.__test_case.loadout_list = copy.deepcopy(self.__create_loadouts())
+            self.__test_case = TestCase(copy.deepcopy(self.__ships[name]))
+            self.__test_case.loadout_list = self.__create_loadouts()
             self.__test_case.number_of_boosters_to_test = self.__test_case.ship.utility_slots
-            self.__test_case.shield_booster_variants = copy.deepcopy(self.__find_boosters_to_test())
+            self.__test_case.shield_booster_variants = self.__find_boosters_to_test()
+            return True
+        return False
 
     def cancel(self):
         self.__cancel = True
