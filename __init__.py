@@ -508,12 +508,17 @@ class TestResult:
         output = list()
         output.append("------------ TEST RESULTS ------------")
         if self.best_survival_time != 0:
+            exp_res, kin_res, therm_res, shield_hitpoints = self.best_loadout.get_total_values()
+            shield_hitpoints += guardian_hitpoints
+
             # sort by survival time and put highest value to start of the list
             if self.best_survival_time > 0:
-                output.append(("Survival Time [s]: ", f"[{self.best_survival_time:.3f}s]"))
+                output.append(("Survival Time [s]: ", f"[{self.best_survival_time:.2f}]"))
             else:
                 output.append(("Survival Time [s]: ", "[Didn't die]"))
+
             shield_generator = self.best_loadout.shield_generator
+            output.append(("Drain Rate [MJ/s]: ", f"[{shield_hitpoints / self.best_survival_time:.2f}]"))
             output.append(("Shield Generator: ", f"[{shield_generator.name}] - [{shield_generator.engineered_name}] - [{shield_generator.experimental_name}]"))
             for i, shield_booster_variant in enumerate(self.best_loadout.boosters):
                 if i == 0:
@@ -522,14 +527,13 @@ class TestResult:
                     output.append((f"{i + 1}: ", f"[{shield_booster_variant.engineering}] - [{shield_booster_variant.experimental}]"))
 
             output.append("")
-            exp_res, kin_res, therm_res, hp = self.best_loadout.get_total_values()
-            output.append(("Shield Hitpoints [MJ]: ", f"[{hp + guardian_hitpoints:.3f}]"))
+            output.append(("Shield Hitpoints [MJ]: ", f"[{shield_hitpoints:.2f}]"))
             regen = self.best_loadout.shield_generator.regen
-            regen_time = (hp + guardian_hitpoints) / (2 * self.best_loadout.shield_generator.regen)
+            regen_time = shield_hitpoints / (2 * self.best_loadout.shield_generator.regen)
             output.append(("Shield Regen [MJ/s]: ", f"[{regen}] ({regen_time:.2f}s from 50%)"))
-            output.append(("Explosive Resistance: ", f"[{(1.0 - exp_res) * 100:.3f}]"))
-            output.append(("Kinetic Resistance: ", f"[{(1.0 - kin_res) * 100:.3f}]"))
-            output.append(("Thermal Resistance: ", f"[{(1.0 - therm_res) * 100:.3f}]"))
+            output.append(("Explosive Resistance [%]: ", f"[{(1.0 - exp_res) * 100:.2f}] ({shield_hitpoints / exp_res:.0f} MJ)"))
+            output.append(("Kinetic Resistance [%]: ", f"[{(1.0 - kin_res) * 100:.2f}] ({shield_hitpoints / kin_res:.0f} MJ)"))
+            output.append(("Thermal Resistance [%]: ", f"[{(1.0 - therm_res) * 100:.2f}] ({shield_hitpoints / therm_res:.0f} MJ)"))
         else:
             output.append("No test results. Please change DPS and/or damage effectiveness.")
         return Utility.format_output_string(output)
