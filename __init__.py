@@ -128,7 +128,6 @@ class ShieldBoosterVariant(object):
         hitpoint_bonus = 1.0
 
         if booster_loadout:
-            print(booster_loadout)
             boosters = [shield_boosters[x] for x in booster_loadout]
         else:
             boosters = shield_boosters
@@ -589,7 +588,7 @@ class TestCase(object):
         :return: best result as TestResult
         """
         best_survival_time = 0
-        lowest_incoming_dps = 10000
+        lowest_dps = 10000
         best_loadout = 0
         best_shield_booster_loadout = None
 
@@ -617,12 +616,11 @@ class TestCase(object):
                 hp = loadout._shield_strength * hitpoint_bonus
                 regen_rate = loadout._shield_generator._regen * (1.0 - damage_effectiveness)
 
-                incoming_dps = damage_effectiveness * (
+                actual_dps = damage_effectiveness * (
                         explosive_dps * exp_res +
                         kinetic_dps * kin_res +
                         thermal_dps * therm_res +
-                        absolute_dps)
-                actual_dps = incoming_dps - regen_rate
+                        absolute_dps) - regen_rate
 
                 survival_time = (hp + scb_hitpoints + guardian_hitpoints) / actual_dps
 
@@ -633,15 +631,15 @@ class TestCase(object):
                         best_shield_booster_loadout = boosters
                         best_survival_time = survival_time
                 elif actual_dps < 0:
-                    if lowest_incoming_dps > incoming_dps:
+                    if lowest_dps > actual_dps:
                         best_loadout = loadout
                         best_shield_booster_loadout = boosters
                         best_survival_time = survival_time
-                        lowest_incoming_dps = incoming_dps
+                        lowest_dps = actual_dps
 
         best_loadout = copy.deepcopy(best_loadout)
         best_loadout.boosters = best_shield_booster_loadout
-        return TestResult(best_loadout, best_survival_time, lowest_incoming_dps)
+        return TestResult(best_loadout, best_survival_time, lowest_dps)
 
 
 class ShieldTester(object):
