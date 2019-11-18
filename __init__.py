@@ -494,9 +494,10 @@ class LoadOut(object):
 
 
 class TestResult:
-    def __init__(self, best_loadout: LoadOut = None, best_survival_time: int = 0):
+    def __init__(self, best_loadout: LoadOut = None, best_survival_time: float = 0.0, lowest_incoming_dps: float = 0.0):
         self.best_loadout = best_loadout
         self.best_survival_time = best_survival_time  # if negative, the ship didn't die
+        self.lowest_incoming_dps = lowest_incoming_dps
 
     def get_output_string(self, guardian_hitpoints: int = 0):
         """
@@ -584,6 +585,7 @@ class TestCase(object):
         :return: best result as TestResult
         """
         best_survival_time = 0
+        lowest_incoming_dps = 10000
         best_loadout = 0
         best_shield_booster_loadout = None
 
@@ -609,12 +611,14 @@ class TestCase(object):
                 kin_res = (1 - loadout._shield_generator._kinres) * kin_modifier
                 therm_res = (1 - loadout._shield_generator._thermres) * therm_modifier
                 hp = loadout._shield_strength * hitpoint_bonus
+                regen_rate = loadout._shield_generator._regen * (1.0 - damage_effectiveness)
 
-                actual_dps = damage_effectiveness * (
+                incoming_dps = damage_effectiveness * (
                         explosive_dps * exp_res +
                         kinetic_dps * kin_res +
                         thermal_dps * therm_res +
-                        absolute_dps) - loadout._shield_generator._regen * (1.0 - damage_effectiveness)
+                        absolute_dps)
+                actual_dps = incoming_dps - regen_rate
 
                 survival_time = (hp + scb_hitpoints + guardian_hitpoints) / actual_dps
 
@@ -625,14 +629,15 @@ class TestCase(object):
                         best_shield_booster_loadout = boosters
                         best_survival_time = survival_time
                 elif actual_dps < 0:
-                    if survival_time < best_survival_time:
+                    if lowest_incoming_dps > incoming_dps:
                         best_loadout = loadout
                         best_shield_booster_loadout = boosters
                         best_survival_time = survival_time
+                        lowest_incoming_dps = incoming_dps
 
         best_loadout = copy.deepcopy(best_loadout)
         best_loadout.boosters = best_shield_booster_loadout
-        return TestResult(best_loadout, best_survival_time)
+        return TestResult(best_loadout, best_survival_time, lowest_incoming_dps)
 
 
 class ShieldTester(object):
@@ -844,7 +849,7 @@ class ShieldTester(object):
         def apply_async_callback(r: TestResult):
             nonlocal best_result
             if best_result.best_survival_time < 0:
-                if r.best_survival_time < best_result.best_survival_time:
+                if r.lowest_incoming_dps < best_result.lowest_incoming_dps:
                     best_result = r
             else:
                 if r.best_survival_time < 0:
