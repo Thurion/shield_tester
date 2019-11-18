@@ -13,6 +13,34 @@ import urllib.request
 from typing import List, Tuple, Any, Dict, Optional
 
 
+class Utility(object):
+    @staticmethod
+    def format_output_string(output: List[Any]) -> str:
+        """
+        Format a list of tuples or strings to be evenly aligned.
+        The list can be made up of strings or tuples of type (str, str). All tuples will be right aligned to the longest string in the tuples.
+        When there is just a string in the list, it will be left untouched.
+        :param output: list containing strings and tuples of type (str, str)
+        :return: formatted output string
+        """
+        character_count = 0
+        out = list()
+
+        # determine length
+        for st in output:
+            if type(st) == tuple:
+                if len(st[0]) > character_count:
+                    character_count = len(st[0])
+
+        # format
+        for st in output:
+            if type(st) == tuple:
+                out.append(st[0].rjust(character_count) + st[1])
+            else:
+                out.append(st)
+        return "\n".join(out)
+
+
 class ShieldBoosterVariant(object):
     SLOT_TEMPLATE = "tinyhardpoint{}"
 
@@ -402,7 +430,9 @@ class LoadOut(object):
 
     # noinspection PyProtectedMember
     def __calculate_shield_strength(self):
-        # formula taken from https://github.com/EDCD/coriolis/blob/master/src/app/shipyard/Calculations.js
+        # formula taken from:
+        # https://forums.frontier.co.uk/threads/the-one-formula-to-rule-them-all-the-mechanics-of-shield-and-thruster-mass-curves.300225/
+        # https://github.com/EDCD/coriolis/blob/master/src/app/shipyard/Calculations.js
         if self._shield_generator and self._ship:
             min_mass = self._shield_generator._minmass
             opt_mass = self._shield_generator._optmass
@@ -479,35 +509,29 @@ class TestResult:
         if self.best_survival_time != 0:
             # sort by survival time and put highest value to start of the list
             if self.best_survival_time > 0:
-                output.append("    Survival Time [s]: [{0:.3f}]".format(self.best_survival_time))
+                output.append(("Survival Time [s]: ", f"[{self.best_survival_time:.3f}s]"))
             else:
-                output.append("    Survival Time [s]: [Didn't die]")
+                output.append(("Survival Time [s]: ", "[Didn't die]"))
             shield_generator = self.best_loadout.shield_generator
-            output.append("     Shield Generator: [{type}] - [{eng}] - [{exp}]".format(type=shield_generator.name,
-                                                                                       eng=shield_generator.engineered_name,
-                                                                                       exp=shield_generator.experimental_name))
+            output.append(("Shield Generator: ", f"[{shield_generator.name}] - [{shield_generator.engineered_name}] - [{shield_generator.experimental_name}]"))
             for i, shield_booster_variant in enumerate(self.best_loadout.boosters):
                 if i == 0:
-                    output.append("     Shield Booster {i}: [{eng}] - [{exp}]".format(i=i + 1,
-                                                                                      eng=shield_booster_variant.engineering,
-                                                                                      exp=shield_booster_variant.experimental))
+                    output.append((f"Shield Booster {i + 1}: ", f"[{shield_booster_variant.engineering}] - [{shield_booster_variant.experimental}]"))
                 else:
-                    output.append("                    {i}: [{eng}] - [{exp}]".format(i=i + 1,
-                                                                                      eng=shield_booster_variant.engineering,
-                                                                                      exp=shield_booster_variant.experimental))
+                    output.append((f"{i + 1}: ", f"[{shield_booster_variant.engineering}] - [{shield_booster_variant.experimental}]"))
 
             output.append("")
             exp_res, kin_res, therm_res, hp = self.best_loadout.get_total_values()
-            output.append("Shield Hitpoints [MJ]: [{0:.3f}]".format(hp + guardian_hitpoints))
+            output.append(("Shield Hitpoints [MJ]: ", f"[{hp + guardian_hitpoints:.3f}]"))
             regen = self.best_loadout.shield_generator.regen
             regen_time = (hp + guardian_hitpoints) / (2 * self.best_loadout.shield_generator.regen)
-            output.append("  Shield Regen [MJ/s]: [{regen}] ({time:.2f}s from 50%)".format(regen=regen, time=regen_time))
-            output.append(" Explosive Resistance: [{0:.3f}]".format((1.0 - exp_res) * 100))
-            output.append("   Kinetic Resistance: [{0:.3f}]".format((1.0 - kin_res) * 100))
-            output.append("   Thermal Resistance: [{0:.3f}]".format((1.0 - therm_res) * 100))
+            output.append(("Shield Regen [MJ/s]: ", f"[{regen}] ({regen_time:.2f}s from 50%)"))
+            output.append(("Explosive Resistance: ", f"[{(1.0 - exp_res) * 100:.3f}]"))
+            output.append(("Kinetic Resistance: ", f"[{(1.0 - kin_res) * 100:.3f}]"))
+            output.append(("Thermal Resistance: ", f"[{(1.0 - therm_res) * 100:.3f}]"))
         else:
             output.append("No test results. Please change DPS and/or damage effectiveness.")
-        return "\n".join(output)
+        return Utility.format_output_string(output)
 
 
 class TestCase(object):
@@ -533,22 +557,22 @@ class TestCase(object):
         output = list()
         output.append("------------ TEST SETUP ------------")
         if self.loadout_list:
-            output.append("                    Ship Type: [{}]".format(self.loadout_list[0].ship_name))
-            output.append("        Shield Generator Size: [{}]".format(self.loadout_list[0].shield_generator.module_class))
+            output.append(("Ship Type: ", f"[{self.loadout_list[0].ship_name}]"))
+            output.append(("Shield Generator Size: ", f"[{self.loadout_list[0].shield_generator.module_class}]"))
         else:
-            output.append("                    Ship Type: [NOT SET]")
-            output.append("        Shield Generator Size: [SHIP NOT SET]")
-        output.append("         Shield Booster Count: [{0}]".format(self.number_of_boosters_to_test))
-        output.append("             Shield Cell Bank: [{}]".format(self.scb_hitpoints))
-        output.append("Guardian Shield Reinforcement: [{}]".format(self.guardian_hitpoints))
-        output.append("  Access to Prismatic Shields: [{}]".format("Yes" if self._use_prismatics else "No"))
-        output.append("                Explosive DPS: [{}]".format(self.explosive_dps))
-        output.append("                  Kinetic DPS: [{}]".format(self.kinetic_dps))
-        output.append("                  Thermal DPS: [{}]".format(self.thermal_dps))
-        output.append("                 Absolute DPS: [{}]".format(self.absolute_dps))
-        output.append("         Damage Effectiveness: [{:.0f}%]".format(self.damage_effectiveness * 100))
+            output.append(("Ship Type: ", "[NOT SET]"))
+            output.append(("Shield Generator Size: ", "[SHIP NOT SET]"))
+        output.append(("Shield Booster Count: ", f"[{self.number_of_boosters_to_test}]"))
+        output.append(("Shield Cell Bank: ", f"[{self.scb_hitpoints}]"))
+        output.append(("Guardian Shield Reinforcement: ", f"[{self.guardian_hitpoints}]"))
+        output.append(("Access to Prismatic Shields: ", f"[{'Yes' if self._use_prismatics else 'No'}]"))
+        output.append(("Explosive DPS: ", f"[{self.explosive_dps}]"))
+        output.append(("Kinetic DPS: ", f"[{self.kinetic_dps}]"))
+        output.append(("Thermal DPS: ", f"[{self.thermal_dps}]"))
+        output.append(("Absolute DPS: ", f"[{self.absolute_dps}]"))
+        output.append(("Damage Effectiveness: ", f"[{self.damage_effectiveness * 100:.0f}%]"))
         output.append("")
-        return "\n".join(output)
+        return Utility.format_output_string(output)
 
     # noinspection PyProtectedMember
     @staticmethod
@@ -801,18 +825,18 @@ class ShieldTester(object):
         booster_combinations = list(itertools.combinations_with_replacement(range(0, len(test_case.shield_booster_variants)), booster_amount))
 
         output.append("------------ TEST RUN ------------")
-        output.append("        Shield Booster Count: [{0}]".format(test_case.number_of_boosters_to_test))
-        output.append("   Shield Generator Variants: [{0}]".format(len(test_case.loadout_list)))
-        output.append("     Shield Booster Variants: [{0}]".format(len(self.__booster_variants)))
-        output.append("Shield loadouts to be tested: [{0:n}]".format(len(booster_combinations) * len(test_case.loadout_list)))
+        output.append(("Shield Booster Count: ", f"[{test_case.number_of_boosters_to_test}]"))
+        output.append(("Shield Generator Variants: ", f"[{len(test_case.loadout_list)}]"))
+        output.append(("Shield Booster Variants: ", f"[{len(self.__booster_variants)}]"))
+        output.append(("Shield loadouts to be tested: ", f"[{len(booster_combinations) * len(test_case.loadout_list):n}]"))
         output.append("Running calculations. Please wait...")
         output.append("")
         if message_queue:
-            message_queue.put("\n".join(output))
+            message_queue.put(Utility.format_output_string(output))
             if callback:
                 callback(ShieldTester.CALLBACK_MESSAGE)
         else:
-            print("\n".join(output))  # in case there is a console
+            print(Utility.format_output_string(output))  # in case there is a console
         output = list()
 
         best_result = TestResult(best_survival_time=0)
