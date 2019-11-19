@@ -712,16 +712,21 @@ class ShieldTester(object):
             old_class = self.__test_case.loadout_list[0].shield_generator.module_class
             self.__test_case.loadout_list = self.__create_loadouts(old_class)
 
-    @property
-    def number_of_tests(self) -> int:
+    def calculate_number_of_tests(self, prelim: int = 0) -> int:
         """
         Calculate number of tests based on shield booster variants and shield generator variants
         :return: number of tests
         """
+        if not prelim or prelim < 1:
+            prelim = len(self.__test_case.loadout_list)
+
+        if self.__test_case.number_of_boosters_to_test == 0:
+            return len(self.__test_case.loadout_list)
+
         if self.__test_case and self.__test_case.shield_booster_variants:
             result = math.factorial(len(self.__test_case.shield_booster_variants) + self.__test_case.number_of_boosters_to_test - 1)
             result = result / math.factorial(len(self.__test_case.shield_booster_variants) - 1) / math.factorial(self.__test_case.number_of_boosters_to_test)
-            return int(result * len(self.__test_case.loadout_list))
+            return int(result * min(len(self.__test_case.loadout_list), prelim))
         return 0
 
     def write_log(self, test_case: TestCase, result: TestResult, filename: str = None, time_and_name: bool = False, include_coriolis: bool = False):
@@ -809,16 +814,26 @@ class ShieldTester(object):
             return copy.deepcopy(self.__unengineered_shield_generators.get(sg_variant.symbol))
         return None
 
-    def compute(self, test_case: TestCase, callback: function = None, message_queue: queue.SimpleQueue = None) -> Optional[TestResult]:
+    # noinspection PyProtectedMember
+    def compute(self, test_case: TestCase,
+                callback: function = None,
+                message_queue: queue.SimpleQueue = None,
+                console_output: bool = False,
+                prelim: int = 0) -> Optional[TestResult]:
         """
         Compute best loadout. Best to call this in an extra thread. It might take a while to complete.
-        If set, the callback will be called [<number of tests> / test_case.loadout_list / MP_CHUNK_SIZE] times (+2 if queue is set).
+        If set, the callback will be called [<number of tests> / (test_case.loadout_list or prelim) / MP_CHUNK_SIZE] times (+2 if queue is set).
         Callback function will be called with CALLBACK_MESSAGE if there is a new message and
                                               CALLBACK_STEP is used for each step
         Calling cancel() will stop the execution of this method. Some callbacks might be called before that happens.
         :param test_case: settings of test case
         :param callback: optional callback using an int as argument
+        :param console_output: whether you want output on the console or not
         :param message_queue: message queue containing some output messages
+        :param prelim: If set to a positive integer, prelim limits the amount of shield generators to consider for further tests. They are chosen by comparing
+                       their stats without applying any boosters to them. <prelim> of the best ones will be tested with all booster combinations.
+                       prelim of 5 will find the same best loadout in the vast majority of cases and 13 should find the same best loadout in all cases.
+                       Using this option will alter test_case.loadout_list
         """
         self.__cancel = False
         if not test_case or not test_case.shield_booster_variants or not test_case.loadout_list:
@@ -827,7 +842,7 @@ class ShieldTester(object):
             print("Can't test nothing")
             return
 
-        if not queue:
+        if console_output:
             print(test_case.get_output_string())
 
         self.__runtime = time.time()
@@ -839,10 +854,57 @@ class ShieldTester(object):
         # use built in itertools and assume booster ids are starting at 1 and that there are no gaps
         booster_combinations = list(itertools.combinations_with_replacement(range(0, len(test_case.shield_booster_variants)), booster_amount))
 
-        output.append("------------ TEST RUN ------------")
+        if prelim > 0 and prelim != len(test_case.loadout_list):
+            output.append("--------- QUICK TEST RUN ---------")
+        else:
+            output.append("------------ TEST RUN ------------")
+
+        # preliminary filtering
+        if prelim > 0 and prelim != len(test_case.loadout_list):
+            preliminary_list = list()
+            preliminary_list_survived = list()
+            best_survival_time = 0
+            lowest_dps = 10000
+
+            for loadout in test_case.loadout_list:
+                # can't use same function in LoadOut because of speed
+                exp_res = 1 - loadout._shield_generator._explres
+                kin_res = 1 - loadout._shield_generator._kinres
+                therm_res = 1 - loadout._shield_generator._thermres
+                hp = loadout._shield_strength
+                regen_rate = loadout._shield_generator._regen * (1.0 - test_case.damage_effectiveness)
+
+                actual_dps = test_case.damage_effectiveness * (
+                        test_case.explosive_dps * exp_res +
+                        test_case.kinetic_dps * kin_res +
+                        test_case.thermal_dps * therm_res +
+                        test_case.absolute_dps) - regen_rate
+
+                survival_time = (hp + test_case.scb_hitpoints + test_case.guardian_hitpoints) / actual_dps
+
+                if actual_dps > 0:
+                    preliminary_list.append((survival_time, loadout))
+                    if best_survival_time >= 0:
+                        # if another run set best_survival_time to a negative value, then the ship didn't die, therefore the other result is better
+                        if survival_time > best_survival_time:
+                            best_survival_time = survival_time
+                elif actual_dps < 0:
+                    preliminary_list_survived.append((actual_dps, loadout))
+                    if lowest_dps > actual_dps:
+                        best_survival_time = survival_time
+                        lowest_dps = actual_dps
+
+            # set only the best loadouts to be tested
+            if len(preliminary_list_survived) > 0:
+                preliminary_list_survived.sort(key=lambda tup: tup[0])
+                test_case.loadout_list = [t[1] for t in preliminary_list_survived[:prelim]]
+            else:
+                preliminary_list.sort(key=lambda tup: tup[0], reverse=True)
+                test_case.loadout_list = [t[1] for t in preliminary_list[:prelim]]
+
         output.append(("Shield Booster Count: ", f"[{test_case.number_of_boosters_to_test}]"))
         output.append(("Shield Generator Variants: ", f"[{len(test_case.loadout_list)}]"))
-        output.append(("Shield Booster Variants: ", f"[{len(self.__booster_variants)}]"))
+        output.append(("Shield Booster Variants: ", f"[{len(booster_combinations)}]"))
         output.append(("Shield loadouts to be tested: ", f"[{len(booster_combinations) * len(test_case.loadout_list):n}]"))
         output.append("Running calculations. Please wait...")
         output.append("")
@@ -850,7 +912,7 @@ class ShieldTester(object):
             message_queue.put(Utility.format_output_string(output))
             if callback:
                 callback(ShieldTester.CALLBACK_MESSAGE)
-        else:
+        if console_output:
             print(Utility.format_output_string(output))  # in case there is a console
         output = list()
 
@@ -873,11 +935,6 @@ class ShieldTester(object):
             for j in range(0, len(l), n):
                 yield l[j:j + n]
 
-        if self.__cancel:
-            print("Cancelled")
-            if callback:
-                callback(ShieldTester.CALLBACK_CANCELLED)
-            return None
         if self.__cpu_cores > 1 and (len(booster_combinations) * len(test_case.loadout_list)) > ShieldTester.MP_CHUNK_SIZE:
             # 1 core is handling UI and this thread, the rest is working on running the calculations
             with multiprocessing.Pool(processes=self.__cpu_cores - 1) as pool:
@@ -915,8 +972,8 @@ class ShieldTester(object):
             message_queue.put("\n".join(output))
             if callback:
                 callback(ShieldTester.CALLBACK_MESSAGE)
-        else:
-            print("\n".join(output))  # in case there is a console
+        if console_output:
+            print("\n".join(output))
             print(best_result.get_output_string(test_case.guardian_hitpoints))
 
         return best_result
