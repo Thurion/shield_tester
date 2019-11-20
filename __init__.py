@@ -563,7 +563,7 @@ class TestCase(object):
         self.absolute_dps = 0
         self.scb_hitpoints = 0
         self.guardian_hitpoints = 0
-        self.shield_booster_variants = None  # type: List[ShieldBoosterVariant]
+        self.shield_booster_combinations = None  # type: List[ShieldBoosterVariant]
         self.loadout_list = None  # type: List[LoadOut]
         self.number_of_boosters_to_test = 0
         self._use_prismatics = True  # set in ShieldTester!
@@ -617,7 +617,7 @@ class TestCase(object):
         guardian_hitpoints = test_case.guardian_hitpoints
 
         for booster_combination in booster_combinations:
-            boosters = [test_case.shield_booster_variants[x] for x in booster_combination]
+            boosters = [test_case.shield_booster_combinations[x] for x in booster_combination]
             # Do this here instead of for each loadout to save some time.
             exp_modifier, kin_modifier, therm_modifier, hitpoint_bonus = ShieldBoosterVariant.calculate_booster_bonuses(boosters)
 
@@ -674,23 +674,10 @@ class ShieldTester(object):
         self.__shield_generators = dict()  # type: Dict[str, Dict[int, List[ShieldGenerator]]]
         self.__unengineered_shield_generators = dict()
 
-        self.__test_case = None  # type: Optional[TestCase]
-        self.__use_short_list = True
-
         self.__runtime = 0
         self.__cpu_cores = os.cpu_count()
         self.__cancel = False
         self.__pool = None  # type: multiprocessing.Pool
-
-    @property
-    def use_short_list(self) -> bool:
-        return self.__use_short_list
-
-    @use_short_list.setter
-    def use_short_list(self, value: bool):
-        if self.__test_case and self.__use_short_list != value:
-            self.__use_short_list = value
-            self.__test_case.shield_booster_variants = self.__find_boosters_to_test()
 
     @property
     def cpu_cores(self) -> int:
@@ -704,37 +691,23 @@ class ShieldTester(object):
     def ship_names(self):
         return [ship for ship in self.__ships.keys()]
 
-    @property
-    def use_prismatics(self) -> bool:
-        if self.__test_case:
-            # noinspection PyProtectedMember
-            return self.__test_case._use_prismatics
-        else:
-            return True
-
-    # noinspection PyProtectedMember
-    @use_prismatics.setter
-    def use_prismatics(self, value: bool):
-        if self.__test_case and self.__test_case.loadout_list and len(self.__test_case.loadout_list) > 0 and self.__test_case._use_prismatics != value:
-            self.__test_case._use_prismatics = value
-            old_class = self.__test_case.loadout_list[0].shield_generator.module_class
-            self.__test_case.loadout_list = self.__create_loadouts(old_class)
-
-    def calculate_number_of_tests(self, prelim: int = 0) -> int:
+    @staticmethod
+    def calculate_number_of_tests(test_case: TestCase, prelim: int = 0) -> int:
         """
         Calculate number of tests based on shield booster variants and shield generator variants
-        :return: number of tests
+        :return: number of tests or 0 if test_case is missing
         """
-        if not prelim or prelim < 1:
-            prelim = len(self.__test_case.loadout_list)
+        if test_case and test_case.shield_booster_combinations:
+            if not prelim or prelim < 1:
+                prelim = len(test_case.loadout_list)
 
-        if self.__test_case.number_of_boosters_to_test == 0:
-            return len(self.__test_case.loadout_list)
+        if test_case and test_case.shield_booster_combinations:
+            if prelim < 1:
+                prelim = len(test_case.loadout_list)
 
-        if self.__test_case and self.__test_case.shield_booster_variants:
-            result = math.factorial(len(self.__test_case.shield_booster_variants) + self.__test_case.number_of_boosters_to_test - 1)
-            result = result / math.factorial(len(self.__test_case.shield_booster_variants) - 1) / math.factorial(self.__test_case.number_of_boosters_to_test)
-            return int(result * min(len(self.__test_case.loadout_list), prelim))
+            result = math.factorial(len(test_case.shield_booster_combinations) + test_case.number_of_boosters_to_test - 1)
+            result = result / math.factorial(len(test_case.shield_booster_combinations) - 1) / math.factorial(test_case.number_of_boosters_to_test)
+            return int(result * min(len(test_case.loadout_list), prelim))
         return 0
 
     def write_log(self, test_case: TestCase, result: TestResult, filename: str = None, time_and_name: bool = False, include_coriolis: bool = False):
@@ -764,53 +737,74 @@ class ShieldTester(object):
             logfile.write("\n\n\n")
             logfile.flush()
 
-    def __find_boosters_to_test(self) -> List[ShieldBoosterVariant]:
-        return copy.deepcopy(list(filter(lambda x: not (x.can_skip and self.__use_short_list), self.__booster_variants)))
+    def set_boosters_to_test(self, test_case: TestCase, short_list: bool = True):
+        """
+        Set booster variants to test.
+        :param test_case: the TestCase
+        :param short_list: whether to use the short list or not (short list = no boosters with explosive resistance)
+        :raises RuntimeError if test_case is missing
+        """
+        if test_case:
+            test_case.shield_booster_combinations = copy.deepcopy(list(filter(lambda x: not (x.can_skip and short_list), self.__booster_variants)))
+        else:
+            raise RuntimeError("No test case provided")
 
-    def __create_loadouts(self, module_class: int = 0) -> List[LoadOut]:
+    def __create_loadouts(self, test_case: TestCase, module_class, prismatics) -> List[LoadOut]:
         """
         Create a list containing all relevant shield generators but no boosters
         """
         loadouts_to_test = list()
-
-        if self.__test_case and self.__test_case.ship:
+        if test_case and test_case.ship:
             if module_class == 0:
-                module_class = self.__test_case.ship.highest_internal
+                module_class = test_case.ship.highest_internal
 
             shield_generators = list()
             shield_generators += self.__shield_generators[ShieldGenerator.TYPE_BIWEAVE][module_class]
             shield_generators += self.__shield_generators[ShieldGenerator.TYPE_NORMAL][module_class]
             # noinspection PyProtectedMember
-            if self.__test_case._use_prismatics:
+            if prismatics:
                 shield_generators += self.__shield_generators[ShieldGenerator.TYPE_PRISMATIC][module_class]
 
+            shield_generators = copy.deepcopy(shield_generators)
             for sg in shield_generators:
-                loadouts_to_test.append(LoadOut(sg, self.__test_case.ship))
-        return copy.deepcopy(loadouts_to_test)
+                loadouts_to_test.append(LoadOut(sg, test_case.ship))
+        return loadouts_to_test
 
     # noinspection PyProtectedMember
-    def get_compatible_shield_generator_classes(self) -> Tuple[int, int]:
+    def get_compatible_shield_generator_classes(self, test_case: TestCase) -> Tuple[int, int]:
         """
         Find classes of shield generators that can be fitted to the selected ship.
+        :param test_case
         :return: tuple: (min class, max class)
         """
-        if self.__test_case and self.__test_case.ship:
+        if test_case and test_case.ship:
             min_class = 0
             sg_classes = list(self.__shield_generators["normal"].keys())
             sg_classes.sort()  # make sure they are in ascending order
             for sg_class in sg_classes:
-                if self.__shield_generators["normal"][sg_class][0]._maxmass > self.__test_case.ship.hull_mass:
+                if self.__shield_generators["normal"][sg_class][0]._maxmass > test_case.ship.hull_mass:
                     min_class = sg_class
                     break
-            return min_class, self.__test_case.ship.highest_internal
+            return min_class, test_case.ship.highest_internal
         else:
             return 0, 0
 
-    def create_loadouts_for_class(self, module_class: int):
-        min_class, max_class = self.get_compatible_shield_generator_classes()
-        sg_class = max(min_class, min(max_class, module_class))
+    def set_loadouts_for_class(self, test_case: TestCase, module_class: int = 0, prismatics: bool = True):
+        """
+        Set test_case.loadout_list with all shield generator variants of the given class.
+        :param test_case: the TestCase
+        :param module_class: module class of shield (1-8). Only a valid class will be set or the maximum if not specified or invalid.
+        :param prismatics: whether to use prismatics or not
+        :raises RuntimeError if test_case is missing
+        """
+        if not test_case:
+            raise RuntimeError("test_case is missing")
+
+        min_class, max_class = self.get_compatible_shield_generator_classes(test_case)
+        sg_class = module_class if module_class in range(min_class, max_class + 1) else max_class
         if sg_class > 0:
-            self.__test_case.loadout_list = self.__create_loadouts(sg_class)
+            test_case.loadout_list = self.__create_loadouts(test_case, sg_class, prismatics)
+            test_case._use_prismatics = prismatics
 
     def get_default_shield_generator_of_variant(self, sg_variant: ShieldGenerator) -> Optional[ShieldGenerator]:
         """
@@ -844,7 +838,7 @@ class ShieldTester(object):
                        Using this option will alter test_case.loadout_list
         """
         self.__cancel = False
-        if not test_case or not test_case.shield_booster_variants or not test_case.loadout_list:
+        if not test_case or not test_case.shield_booster_combinations or not test_case.loadout_list:
             # nothing to test
             # TODO maybe raise exception
             print("Can't test nothing")
@@ -860,7 +854,7 @@ class ShieldTester(object):
         booster_amount = test_case.number_of_boosters_to_test
         booster_amount = max(0, min(test_case.ship.utility_slots, booster_amount))
         # use built in itertools and assume booster ids are starting at 1 and that there are no gaps
-        booster_combinations = list(itertools.combinations_with_replacement(range(0, len(test_case.shield_booster_variants)), booster_amount))
+        booster_combinations = list(itertools.combinations_with_replacement(range(0, len(test_case.shield_booster_combinations)), booster_amount))
 
         if prelim > 0 and prelim != len(test_case.loadout_list):
             output.append("--------- QUICK TEST RUN ---------")
@@ -1007,17 +1001,7 @@ class ShieldTester(object):
             return ShieldTester.CORIOLIS_URL.format(loadout_url)
         return ""
 
-    def get_test_case(self) -> Optional[TestCase]:
-        """
-        Get a the test case containing some settings already.
-        Don't forget to add additional attributes like incoming DPS.
-        :return: TestCase or None if no ship was selected
-        """
-        if self.__test_case:
-            return self.__test_case
-        return None
-
-    def select_ship(self, name: str) -> bool:
+    def select_ship(self, name: str) -> Optional[TestCase]:
         """
         Select a ship by its name. Get names from the property ship_names.
         This creates a new TestCase with the selected ship and the highest possible shield generator variants pre-selected.
@@ -1025,12 +1009,12 @@ class ShieldTester(object):
         :return: True if loaded successfully, False otherwise
         """
         if name in self.__ships:
-            self.__test_case = TestCase(copy.deepcopy(self.__ships[name]))
-            self.__test_case.loadout_list = self.__create_loadouts()
-            self.__test_case.number_of_boosters_to_test = self.__test_case.ship.utility_slots
-            self.__test_case.shield_booster_variants = self.__find_boosters_to_test()
-            return True
-        return False
+            test_case = TestCase(copy.deepcopy(self.__ships[name]))
+            self.set_loadouts_for_class(test_case)
+            test_case.number_of_boosters_to_test = test_case.ship.utility_slots
+            self.set_boosters_to_test(test_case, short_list=True)
+            return test_case
+        return None
 
     def cancel(self):
         self.__cancel = True

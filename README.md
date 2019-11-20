@@ -36,14 +36,12 @@ def main():
 
     # get a list of ships and select one
     print(tester.ship_names)
-    if tester.select_ship("Anaconda"):
+    test_case = tester.select_ship("Anaconda")
+    if test_case:
         print("Anaconda selected")
     else:
         print(":(")
         return
-
-    # get a new test case
-    test_case = tester.get_test_case()
 
     # get some information
     print("Number of boosters: {}".format(test_case.ship.utility_slots))
@@ -53,12 +51,10 @@ def main():
 
     # set defender data
     test_case.number_of_boosters_to_test = 2
-    # we don't have access to prismatic
-    tester.use_prismatics = False  # this triggers the creation of a new list of shield generators
+    # we don't have access to prismatic and we want a class 6 shield instead
+    tester.set_loadouts_for_class(test_case, module_class=6, prismatics=False)
     # ... but we got some guardian boosters
     test_case.guardian_hitpoints = 420
-    # we want a class 6 shield instead
-    tester.create_loadouts_for_class(6, test_case=test_case)
 
     # set attacker data
     test_case.absolute_dps = 10
@@ -70,7 +66,7 @@ def main():
     tester.cpu_cores = 2
     tester.use_short_list = True  # default value
 
-    print("Number of tests: {}".format(tester.number_of_tests))
+    print("Number of tests: {}".format(tester.calculate_number_of_tests(test_case)))
 
     # run the test:
     test_result = tester.compute(test_case)  # can add callback function and a simple queue for messages
@@ -78,7 +74,7 @@ def main():
     # what is our setup again?
     print(test_case.get_output_string())
     if test_result:
-        # print the results, don't forget to add the guardian booster hitpoints. 
+        # print the results, don't forget to add the guardian booster hitpoints.
         # test_result has no access to the setup and those values are not stored
         print(test_result.get_output_string(test_case.guardian_hitpoints))
 
@@ -87,6 +83,7 @@ def main():
 
         # in case we want to do something with the coriolis link
         link_to_coriolis = tester.get_coriolis_link(test_result.best_loadout)
+        print(link_to_coriolis)
     else:
         print("Something went wrong...")
 
