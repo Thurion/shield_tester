@@ -54,6 +54,9 @@ class ShieldBoosterVariant(object):
         self._can_skip = False
         self._loadout_template = None  # type: Optional[Dict[str, Any]]
 
+    def __str__(self):
+        return f"{self._engineering} - {self._experimental}"
+
     @property
     def engineering(self):
         return self._engineering
@@ -182,6 +185,9 @@ class ShieldGenerator(object):
         self._engineered_symbol = ""
         self._experimental_name = "no experimental effect"
         self._experimental_symbol = ""
+
+    def __str__(self):
+        return f"{self._name} ({self._class}) - {self._engineered_name} - {self._experimental_name}"
 
     @property
     def module_class(self) -> int:
@@ -519,11 +525,12 @@ class TestResult:
             shield_generator = self.best_loadout.shield_generator
             output.append(("Drain Rate [MJ/s]: ", f"[{shield_hitpoints / self.best_survival_time:.2f}]"))
             output.append(("Shield Generator: ", f"[{shield_generator.name}] - [{shield_generator.engineered_name}] - [{shield_generator.experimental_name}]"))
-            for i, shield_booster_variant in enumerate(self.best_loadout.boosters):
-                if i == 0:
-                    output.append((f"Shield Booster {i + 1}: ", f"[{shield_booster_variant.engineering}] - [{shield_booster_variant.experimental}]"))
-                else:
-                    output.append((f"{i + 1}: ", f"[{shield_booster_variant.engineering}] - [{shield_booster_variant.experimental}]"))
+            if self.best_loadout.boosters:
+                for i, shield_booster_variant in enumerate(self.best_loadout.boosters):
+                    if i == 0:
+                        output.append((f"Shield Booster {i + 1}: ", f"[{shield_booster_variant.engineering}] - [{shield_booster_variant.experimental}]"))
+                    else:
+                        output.append((f"{i + 1}: ", f"[{shield_booster_variant.engineering}] - [{shield_booster_variant.experimental}]"))
 
             output.append("")
             output.append(("Shield Hitpoints [MJ]: ", f"[{shield_hitpoints:.2f}]"))
@@ -580,11 +587,11 @@ class TestCase(object):
 
     # noinspection PyProtectedMember
     @staticmethod
-    def test_case(test_case: TestCase, booster_variations: List[List[int]]) -> TestResult:
+    def test_case(test_case: TestCase, booster_combinations: List[List[int]]) -> TestResult:
         """
-        Run a particular test based on provided TestCase and booster variations.
+        Run a particular test based on provided TestCase and booster combinations.
         :param test_case: TestCase containing test setup
-        :param booster_variations: list of lists of indexes of ShieldBoosterVariant
+        :param booster_combinations: list of lists of indexes of ShieldBoosterVariant
         :return: best result as TestResult
         """
         best_survival_time = 0
@@ -601,8 +608,8 @@ class TestCase(object):
         scb_hitpoints = test_case.scb_hitpoints
         guardian_hitpoints = test_case.guardian_hitpoints
 
-        for booster_variation in booster_variations:
-            boosters = [test_case.shield_booster_variants[x] for x in booster_variation]
+        for booster_combination in booster_combinations:
+            boosters = [test_case.shield_booster_variants[x] for x in booster_combination]
             # Do this here instead of for each loadout to save some time.
             exp_modifier, kin_modifier, therm_modifier, hitpoint_bonus = ShieldBoosterVariant.calculate_booster_bonuses(boosters)
 
@@ -723,6 +730,7 @@ class ShieldTester(object):
         :param test_case: TestCase for information about setup
         :param result: TestResult for information about results
         :param filename: optional filename to append new log (omit file ending)
+        :param time_and_name: if set to True, the file name will be <<name> <timestamp>>.txt
         :param include_coriolis: optional link to Coriolis
         """
         os.makedirs(ShieldTester.LOG_DIRECTORY, exist_ok=True)
