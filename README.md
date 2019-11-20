@@ -18,7 +18,14 @@ The multi-threaded Python port is many times faster per CPU thread. It might not
 ### Improvements to these tools
 In a [comment](https://www.youtube.com/watch?v=87DMWz8IeEE&lc=Ugz-fl387Mi0ePTFCZ94AaABAg) to the original D2EA video, Cmdr Kaethena listed a few limitations and scenarios that you should read to understand that these tools are a good starting point, but possibly not the ending point for your shield loadouts. There are a lot of situations where a more generalist loadout might help you more than a max survivability loadout from this tool. YMMV. 
 
-## How to use
+## About this module
+
+### Requirements
+
+* Python 3.7
+* Modules: psutil
+
+### How to use
 Here is a working but probably incomplete example:
 ```python
 import shield_tester as st

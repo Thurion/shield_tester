@@ -12,6 +12,14 @@ import base64
 import urllib.request
 from typing import List, Tuple, Any, Dict, Optional
 
+try:
+    # noinspection PyUnresolvedReferences
+    import psutil
+    _psutil_imported = True
+except ImportError as error:
+    _psutil_imported = False
+    print(error)
+
 
 class Utility(object):
     @staticmethod
@@ -947,6 +955,12 @@ class ShieldTester(object):
                             callback(ShieldTester.CALLBACK_CANCELLED)
                         return None
                     pool.apply_async(TestCase.test_case, args=(test_case, chunk), callback=apply_async_callback)
+
+                # set priority of child processes to below normal
+                if _psutil_imported:
+                    parent = psutil.Process()
+                    for child in parent.children():
+                        child.nice(psutil.BELOW_NORMAL_PRIORITY_CLASS)
                 pool.close()
                 pool.join()
                 self.__pool = None
