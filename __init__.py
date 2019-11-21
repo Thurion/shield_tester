@@ -507,10 +507,10 @@ class LoadOut(object):
 
 
 class TestResult:
-    def __init__(self, best_loadout: LoadOut = None, best_survival_time: float = 0.0, lowest_incoming_dps: float = 0.0):
-        self.best_loadout = best_loadout
-        self.best_survival_time = best_survival_time  # if negative, the ship didn't die
-        self.lowest_incoming_dps = lowest_incoming_dps
+    def __init__(self, loadout: LoadOut = None, survival_time: float = 0.0, incoming_dps: float = 0.0):
+        self.loadout = loadout
+        self.survival_time = survival_time  # if negative, the ship didn't die
+        self.incoming_dps = incoming_dps
 
     def get_output_string(self, guardian_hitpoints: int = 0):
         """
@@ -520,21 +520,21 @@ class TestResult:
         """
         output = list()
         output.append("------------ TEST RESULTS ------------")
-        if self.best_survival_time != 0:
-            exp_res, kin_res, therm_res, shield_hitpoints = self.best_loadout.get_total_values()
+        if self.survival_time != 0:
+            exp_res, kin_res, therm_res, shield_hitpoints = self.loadout.get_total_values()
             shield_hitpoints += guardian_hitpoints
 
             # sort by survival time and put highest value to start of the list
-            if self.best_survival_time > 0:
-                output.append(("Survival Time [s]: ", f"[{self.best_survival_time:.2f}]"))
+            if self.survival_time > 0:
+                output.append(("Survival Time [s]: ", f"[{self.survival_time:.2f}]"))
             else:
                 output.append(("Survival Time [s]: ", "[Didn't die]"))
 
-            shield_generator = self.best_loadout.shield_generator
-            output.append(("Drain Rate [MJ/s]: ", f"[{shield_hitpoints / self.best_survival_time:.2f}]"))
+            shield_generator = self.loadout.shield_generator
+            output.append(("Drain Rate [MJ/s]: ", f"[{shield_hitpoints / self.survival_time:.2f}]"))
             output.append(("Shield Generator: ", f"[{shield_generator.name}] - [{shield_generator.engineered_name}] - [{shield_generator.experimental_name}]"))
-            if self.best_loadout.boosters:
-                for i, shield_booster_variant in enumerate(self.best_loadout.boosters):
+            if self.loadout.boosters:
+                for i, shield_booster_variant in enumerate(self.loadout.boosters):
                     if i == 0:
                         output.append((f"Shield Booster {i + 1}: ", f"[{shield_booster_variant.engineering}] - [{shield_booster_variant.experimental}]"))
                     else:
@@ -542,8 +542,8 @@ class TestResult:
 
             output.append("")
             output.append(("Shield Hitpoints [MJ]: ", f"[{shield_hitpoints:.2f}]"))
-            regen = self.best_loadout.shield_generator.regen
-            regen_time = shield_hitpoints / (2 * self.best_loadout.shield_generator.regen)
+            regen = self.loadout.shield_generator.regen
+            regen_time = shield_hitpoints / (2 * self.loadout.shield_generator.regen)
             output.append(("Shield Regen [MJ/s]: ", f"[{regen}] ({regen_time:.2f}s from 50%)"))
             output.append(("Explosive Resistance [%]: ", f"[{(1.0 - exp_res) * 100:.2f}] ({shield_hitpoints / exp_res:.0f} MJ)"))
             output.append(("Kinetic Resistance [%]: ", f"[{(1.0 - kin_res) * 100:.2f}] ({shield_hitpoints / kin_res:.0f} MJ)"))
@@ -732,7 +732,7 @@ class ShieldTester(object):
             if include_coriolis:
                 logfile.write("\n")
                 logfile.write("\n")
-                logfile.write(self.get_coriolis_link(result.best_loadout))
+                logfile.write(self.get_coriolis_link(result.loadout))
 
             logfile.write("\n\n\n")
             logfile.flush()
@@ -918,17 +918,17 @@ class ShieldTester(object):
             print(Utility.format_output_string(output))  # in case there is a console
         output = list()
 
-        best_result = TestResult(best_survival_time=0)
+        best_result = TestResult(survival_time=0)
 
         def apply_async_callback(r: TestResult):
             nonlocal best_result
-            if best_result.best_survival_time < 0:
-                if r.lowest_incoming_dps < best_result.lowest_incoming_dps:
+            if best_result.survival_time < 0:
+                if r.incoming_dps < best_result.incoming_dps:
                     best_result = r
             else:
-                if r.best_survival_time < 0:
+                if r.survival_time < 0:
                     best_result = r
-                elif r.best_survival_time > best_result.best_survival_time:
+                elif r.survival_time > best_result.survival_time:
                     best_result = r
             if callback:
                 callback(ShieldTester.CALLBACK_STEP)
