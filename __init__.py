@@ -507,10 +507,11 @@ class LoadOut(object):
 
 
 class TestResult:
-    def __init__(self, loadout: LoadOut = None, survival_time: float = 0.0, incoming_dps: float = 0.0):
+    def __init__(self, loadout: LoadOut = None, survival_time: float = 0.0, incoming_dps: float = 0.0, total_hitpoints: float = 0.0):
         self.loadout = loadout
         self.survival_time = survival_time  # if negative, the ship didn't die
-        self.incoming_dps = incoming_dps
+        self.incoming_dps = incoming_dps  # if negative, the ship didn't die
+        self.total_hitpoints = total_hitpoints  # shield HP without guardian and SCBs
 
     def get_output_string(self, guardian_hitpoints: int = 0):
         """
@@ -606,6 +607,7 @@ class TestCase(object):
         lowest_dps = 10000
         best_loadout = 0
         best_shield_booster_loadout = None
+        best_hitpoints = 0
 
         # reduce calls -> speed up program, this should speed up the program by a couple hundred ms when using 8 boosters and the short list
         damage_effectiveness = test_case.damage_effectiveness
@@ -622,8 +624,6 @@ class TestCase(object):
             exp_modifier, kin_modifier, therm_modifier, hitpoint_bonus = ShieldBoosterVariant.calculate_booster_bonuses(boosters)
 
             for loadout in test_case.loadout_list:
-                loadout.boosters = boosters
-
                 # can't use same function in LoadOut because of speed
                 exp_res = (1 - loadout._shield_generator._explres) * exp_modifier
                 kin_res = (1 - loadout._shield_generator._kinres) * kin_modifier
@@ -645,16 +645,19 @@ class TestCase(object):
                         best_loadout = loadout
                         best_shield_booster_loadout = boosters
                         best_survival_time = survival_time
-                elif actual_dps < 0:
-                    if lowest_dps > actual_dps:
+                        best_hitpoints = hp
+                elif actual_dps <= 0:
+                    if lowest_dps > actual_dps or (math.isclose(lowest_dps, actual_dps, rel_tol=1e-8) and best_hitpoints < hp):
                         best_loadout = loadout
                         best_shield_booster_loadout = boosters
                         best_survival_time = survival_time
                         lowest_dps = actual_dps
+                        best_hitpoints = hp
 
-        best_loadout = copy.deepcopy(best_loadout)
+        # put everything together
+        best_loadout = copy.deepcopy(best_loadout)  # create copy because it might be reused by the multiprocessing pool
         best_loadout.boosters = best_shield_booster_loadout
-        return TestResult(best_loadout, best_survival_time, lowest_dps)
+        return TestResult(best_loadout, best_survival_time, lowest_dps, best_hitpoints)
 
 
 class ShieldTester(object):
@@ -923,7 +926,9 @@ class ShieldTester(object):
         def apply_async_callback(r: TestResult):
             nonlocal best_result
             if best_result.survival_time < 0:
-                if r.incoming_dps < best_result.incoming_dps:
+                # ship didn't die
+                if best_result.incoming_dps > r.incoming_dps or (math.isclose(best_result.incoming_dps, r.incoming_dps, rel_tol=1e-8)
+                                                                 and best_result.total_hitpoints < r.total_hitpoints):
                     best_result = r
             else:
                 if r.survival_time < 0:
