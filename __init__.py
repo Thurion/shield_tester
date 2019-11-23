@@ -53,45 +53,18 @@ class ShieldBoosterVariant(object):
     SLOT_TEMPLATE = "tinyhardpoint{}"
 
     def __init__(self):
-        self._engineering = ""
-        self._experimental = ""
-        self._shield_strength_bonus = ""
-        self._exp_res_bonus = ""
-        self._kin_res_bonus = ""
-        self._therm_res_bonus = ""
-        self._can_skip = False
-        self._loadout_template = None  # type: Optional[Dict[str, Any]]
+        # no need for private attributes, we are handing out deep copies
+        self.engineering = ""
+        self.experimental = ""
+        self.shield_strength_bonus = ""
+        self.exp_res_bonus = ""
+        self.kin_res_bonus = ""
+        self.therm_res_bonus = ""
+        self.can_skip = False
+        self.loadout_template = None  # type: Optional[Dict[str, Any]]
 
     def __str__(self):
-        return f"{self._engineering} - {self._experimental}"
-
-    @property
-    def engineering(self):
-        return self._engineering
-
-    @property
-    def experimental(self):
-        return self._experimental
-
-    @property
-    def shield_strength_bonus(self):
-        return self._shield_strength_bonus
-
-    @property
-    def exp_res_bonus(self):
-        return self._exp_res_bonus
-
-    @property
-    def kin_res_bonus(self):
-        return self._kin_res_bonus
-
-    @property
-    def therm_res_bonus(self):
-        return self._therm_res_bonus
-
-    @property
-    def can_skip(self):
-        return self._can_skip
+        return f"{self.engineering} - {self.experimental}"
 
     def get_loadout_template_slot(self, slot: int) -> Dict[str, Any]:
         """
@@ -99,8 +72,8 @@ class ShieldBoosterVariant(object):
         :param slot: int from 1 to 8 (including)
         :return:
         """
-        if self._loadout_template:
-            loadout = copy.deepcopy(self._loadout_template)
+        if self.loadout_template:
+            loadout = copy.deepcopy(self.loadout_template)
             loadout["Slot"] = self.SLOT_TEMPLATE.format(slot)
             return loadout
         return dict()
@@ -113,17 +86,16 @@ class ShieldBoosterVariant(object):
         :return: newly created ShieldBoosterVariant object
         """
         booster = ShieldBoosterVariant()
-        booster._engineering = json_booster["engineering"]
-        booster._experimental = json_booster["experimental"]
-        booster._shield_strength_bonus = json_booster["shield_strength_bonus"]
-        booster._exp_res_bonus = json_booster["exp_res_bonus"]
-        booster._kin_res_bonus = json_booster["kin_res_bonus"]
-        booster._therm_res_bonus = json_booster["therm_res_bonus"]
-        booster._can_skip = json_booster["can_skip"]
-        booster._loadout_template = json_booster["loadout_template"]
+        booster.engineering = json_booster["engineering"]
+        booster.experimental = json_booster["experimental"]
+        booster.shield_strength_bonus = json_booster["shield_strength_bonus"]
+        booster.exp_res_bonus = json_booster["exp_res_bonus"]
+        booster.kin_res_bonus = json_booster["kin_res_bonus"]
+        booster.therm_res_bonus = json_booster["therm_res_bonus"]
+        booster.can_skip = json_booster["can_skip"]
+        booster.loadout_template = json_booster["loadout_template"]
         return booster
 
-    # noinspection PyTypeChecker
     @staticmethod
     def calculate_booster_bonuses(shield_boosters: List[ShieldBoosterVariant], booster_loadout: List[int] = None) -> Tuple[float, float, float, float]:
         """
@@ -144,10 +116,10 @@ class ShieldBoosterVariant(object):
             boosters = shield_boosters
 
         for booster in boosters:
-            exp_modifier *= (1.0 - booster._exp_res_bonus)
-            kin_modifier *= (1.0 - booster._kin_res_bonus)
-            therm_modifier *= (1.0 - booster._therm_res_bonus)
-            hitpoint_bonus += booster._shield_strength_bonus
+            exp_modifier *= (1.0 - booster.exp_res_bonus)
+            kin_modifier *= (1.0 - booster.kin_res_bonus)
+            therm_modifier *= (1.0 - booster.therm_res_bonus)
+            hitpoint_bonus += booster.shield_strength_bonus
 
         # Compensate for diminishing returns
         if exp_modifier < 0.7:
@@ -172,54 +144,31 @@ class ShieldGenerator(object):
     TYPE_PRISMATIC = "prismatic"
 
     def __init__(self):
-        self._symbol = ""
-        self._integrity = 0
-        self._power = 0
-        self._explres = 0
-        self._kinres = 0
-        self._thermres = 0
-        self._name = ""
-        self._class = 0
-        self._regen = 0
-        self._brokenregen = 0
-        self._distdraw = 0
-        self._maxmass = 0
-        self._maxmul = 0
-        self._minmass = 0
-        self._minmul = 0
-        self._optmass = 0
-        self._optmul = 0
-        self._engineered_name = "not engineered"
-        self._engineered_symbol = ""
-        self._experimental_name = "no experimental effect"
-        self._experimental_symbol = ""
+        # no need for private attributes, we are handing out deep copies
+        self.symbol = ""
+        self.integrity = 0
+        self.power = 0
+        self.explres = 0
+        self.kinres = 0
+        self.thermres = 0
+        self.name = ""
+        self.module_class = 0
+        self.regen = 0
+        self.brokenregen = 0
+        self.distdraw = 0
+        self.maxmass = 0
+        self.maxmul = 0
+        self.minmass = 0
+        self.minmul = 0
+        self.optmass = 0
+        self.optmul = 0
+        self.engineered_name = "not engineered"
+        self.engineered_symbol = ""
+        self.experimental_name = "no experimental effect"
+        self.experimental_symbol = ""
 
     def __str__(self):
-        return f"{self._name} ({self._class}) - {self._engineered_name} - {self._experimental_name}"
-
-    @property
-    def module_class(self) -> int:
-        return self._class
-
-    @property
-    def name(self) -> str:
-        return self._name
-
-    @property
-    def symbol(self) -> str:
-        return self._symbol
-
-    @property
-    def regen(self) -> float:
-        return self._regen
-
-    @property
-    def engineered_name(self) -> str:
-        return self._engineered_name
-
-    @property
-    def experimental_name(self) -> str:
-        return self._experimental_name
+        return f"{self.name} ({self.module_class}) - {self.engineered_name} - {self.experimental_name}"
 
     @staticmethod
     def create_from_json(json_generator: json) -> ShieldGenerator:
@@ -229,23 +178,23 @@ class ShieldGenerator(object):
         :return: newly created ShieldGenerator object
         """
         generator = ShieldGenerator()
-        generator._symbol = json_generator["symbol"]
-        generator._integrity = json_generator["integrity"]
-        generator._power = json_generator["power"]
-        generator._explres = json_generator["explres"]
-        generator._kinres = json_generator["kinres"]
-        generator._thermres = json_generator["thermres"]
-        generator._name = json_generator["name"]
-        generator._class = json_generator["class"]
-        generator._regen = json_generator["regen"]
-        generator._brokenregen = json_generator["brokenregen"]
-        generator._distdraw = json_generator["distdraw"]
-        generator._maxmass = json_generator["maxmass"]
-        generator._maxmul = json_generator["maxmul"]
-        generator._minmass = json_generator["minmass"]
-        generator._minmul = json_generator["minmul"]
-        generator._optmass = json_generator["optmass"]
-        generator._optmul = json_generator["optmul"]
+        generator.symbol = json_generator["symbol"]
+        generator.integrity = json_generator["integrity"]
+        generator.power = json_generator["power"]
+        generator.explres = json_generator["explres"]
+        generator.kinres = json_generator["kinres"]
+        generator.thermres = json_generator["thermres"]
+        generator.name = json_generator["name"]
+        generator.module_class = json_generator["class"]
+        generator.regen = json_generator["regen"]
+        generator.brokenregen = json_generator["brokenregen"]
+        generator.distdraw = json_generator["distdraw"]
+        generator.maxmass = json_generator["maxmass"]
+        generator.maxmul = json_generator["maxmul"]
+        generator.minmass = json_generator["minmass"]
+        generator.minmul = json_generator["minmul"]
+        generator.optmass = json_generator["optmass"]
+        generator.optmul = json_generator["optmul"]
         return generator
 
     def _calculate_and_set_engineering(self, attr: str, key: str, features: Dict[str, Any], calc_type: int, is_percentage: bool = False):
@@ -274,19 +223,19 @@ class ShieldGenerator(object):
             setattr(self, attr, round(r, 4))
 
     def _apply_engineering(self, features: json, is_percentage: bool = False):
-        self._calculate_and_set_engineering("_integrity", "integrity", features, self.CALC_NORMAL)
-        self._calculate_and_set_engineering("_brokenregen", "brokenregen", features, self.CALC_NORMAL)
-        self._calculate_and_set_engineering("_regen", "regen", features, self.CALC_NORMAL)
-        self._calculate_and_set_engineering("_distdraw", "distdraw", features, self.CALC_NORMAL)
-        self._calculate_and_set_engineering("_power", "power", features, self.CALC_NORMAL)
+        self._calculate_and_set_engineering("integrity", "integrity", features, self.CALC_NORMAL)
+        self._calculate_and_set_engineering("brokenregen", "brokenregen", features, self.CALC_NORMAL)
+        self._calculate_and_set_engineering("regen", "regen", features, self.CALC_NORMAL)
+        self._calculate_and_set_engineering("distdraw", "distdraw", features, self.CALC_NORMAL)
+        self._calculate_and_set_engineering("power", "power", features, self.CALC_NORMAL)
 
-        self._calculate_and_set_engineering("_optmul", "optmul", features, self.CALC_MASS)
-        self._calculate_and_set_engineering("_minmul", "optmul", features, self.CALC_MASS)
-        self._calculate_and_set_engineering("_maxmul", "optmul", features, self.CALC_MASS)
+        self._calculate_and_set_engineering("optmul", "optmul", features, self.CALC_MASS)
+        self._calculate_and_set_engineering("minmul", "optmul", features, self.CALC_MASS)
+        self._calculate_and_set_engineering("maxmul", "optmul", features, self.CALC_MASS)
 
-        self._calculate_and_set_engineering("_kinres", "kinres", features, self.CALC_RES, is_percentage)
-        self._calculate_and_set_engineering("_thermres", "thermres", features, self.CALC_RES, is_percentage)
-        self._calculate_and_set_engineering("_explres", "explres", features, self.CALC_RES, is_percentage)
+        self._calculate_and_set_engineering("kinres", "kinres", features, self.CALC_RES, is_percentage)
+        self._calculate_and_set_engineering("thermres", "thermres", features, self.CALC_RES, is_percentage)
+        self._calculate_and_set_engineering("explres", "explres", features, self.CALC_RES, is_percentage)
 
     @staticmethod
     def create_engineered_shield_generators(prototype: ShieldGenerator, blueprints: json, experimentals: json) -> List[ShieldGenerator]:
@@ -301,13 +250,13 @@ class ShieldGenerator(object):
 
         for blueprint in blueprints:
             engineered_sg = copy.deepcopy(prototype)
-            engineered_sg._engineered_symbol = blueprint["symbol"]
-            engineered_sg._engineered_name = blueprint["name"]
+            engineered_sg.engineered_symbol = blueprint["symbol"]
+            engineered_sg.engineered_name = blueprint["name"]
             engineered_sg._apply_engineering(blueprint["features"])
             for experimental in experimentals:
                 exp_eng_sg = copy.deepcopy(engineered_sg)
-                exp_eng_sg._experimental_symbol = experimental["symbol"]
-                exp_eng_sg._experimental_name = experimental["name"]
+                exp_eng_sg.experimental_symbol = experimental["symbol"]
+                exp_eng_sg.experimental_name = experimental["name"]
                 exp_eng_sg._apply_engineering(experimental["features"], is_percentage=True)
                 variations.append(exp_eng_sg)
 
@@ -322,24 +271,24 @@ class ShieldGenerator(object):
                     "OriginalValue": def_value,
                     "LessIsGood": less_is_good}
 
-        if default_sg._integrity != self._integrity:
-            modifiers.append(helper("Integrity", default_sg._integrity, self._integrity))
-        if default_sg._power != self._power:
-            modifiers.append(helper("PowerDraw", default_sg._power, self._power, 1))
-        if default_sg._optmul != self._optmul:
-            modifiers.append(helper("ShieldGenStrength", default_sg._optmul * 100, self._optmul * 100))
-        if default_sg._distdraw != self._distdraw:
-            modifiers.append(helper("EnergyPerRegen", default_sg._distdraw, self._distdraw, 1))
-        if default_sg._brokenregen != self._brokenregen:
-            modifiers.append(helper("BrokenRegenRate", default_sg._brokenregen, self._brokenregen))
-        if default_sg._regen != self._regen:
-            modifiers.append(helper("RegenRate", default_sg._regen, self._regen))
-        if default_sg._kinres != self._kinres:
-            modifiers.append(helper("KineticResistance", default_sg._kinres * 100, self._kinres * 100))
-        if default_sg._thermres != self._thermres:
-            modifiers.append(helper("ThermicResistance", default_sg._thermres * 100, self._thermres * 100))
-        if default_sg._explres != self._explres:
-            modifiers.append(helper("ExplosiveResistance", default_sg._explres * 100, self._explres * 100))
+        if default_sg.integrity != self.integrity:
+            modifiers.append(helper("Integrity", default_sg.integrity, self.integrity))
+        if default_sg.power != self.power:
+            modifiers.append(helper("PowerDraw", default_sg.power, self.power, 1))
+        if default_sg.optmul != self.optmul:
+            modifiers.append(helper("ShieldGenStrength", default_sg.optmul * 100, self.optmul * 100))
+        if default_sg.distdraw != self.distdraw:
+            modifiers.append(helper("EnergyPerRegen", default_sg.distdraw, self.distdraw, 1))
+        if default_sg.brokenregen != self.brokenregen:
+            modifiers.append(helper("BrokenRegenRate", default_sg.brokenregen, self.brokenregen))
+        if default_sg.regen != self.regen:
+            modifiers.append(helper("RegenRate", default_sg.regen, self.regen))
+        if default_sg.kinres != self.kinres:
+            modifiers.append(helper("KineticResistance", default_sg.kinres * 100, self.kinres * 100))
+        if default_sg.thermres != self.thermres:
+            modifiers.append(helper("ThermicResistance", default_sg.thermres * 100, self.thermres * 100))
+        if default_sg.explres != self.explres:
+            modifiers.append(helper("ExplosiveResistance", default_sg.explres * 100, self.explres * 100))
         return modifiers
 
     def create_loadout(self, default_sg: ShieldGenerator, slot_class: int) -> Dict[str, Any]:
@@ -350,12 +299,12 @@ class ShieldGenerator(object):
         :return: dictionary containing module information about the shield generator
         """
         modifiers = self._create_modifier_templates(default_sg)
-        engineering = {"BlueprintName": self._engineered_symbol,
+        engineering = {"BlueprintName": self.engineered_symbol,
                        "Level": 5,
                        "Quality": 1,
                        "Modifiers": modifiers,
-                       "ExperimentalEffect": self._experimental_symbol}
-        loadout = {"Item": self._symbol,
+                       "ExperimentalEffect": self.experimental_symbol}
+        loadout = {"Item": self.symbol,
                    "Slot": self.SLOT_TEMPLATE.format(slot_class),
                    "On": True,
                    "Priority": 0,
@@ -365,41 +314,14 @@ class ShieldGenerator(object):
 
 class StarShip(object):
     def __init__(self):
-        self._name = ""
-        self._symbol = ""
-        self._loadout_template = dict()
-        self._base_shield_strength = 0
-        self._hull_mass = 0
-        self._utility_slots = 0
-        self._highest_internal = 0
-
-    @property
-    def name(self) -> str:
-        return self._name
-
-    @property
-    def symbol(self) -> str:
-        return self._symbol
-
-    @property
-    def loadout_template(self) -> Dict[str, Any]:
-        return copy.deepcopy(self._loadout_template)
-
-    @property
-    def base_shield_strength(self) -> int:
-        return self._base_shield_strength
-
-    @property
-    def hull_mass(self) -> int:
-        return self._hull_mass
-
-    @property
-    def utility_slots(self) -> int:
-        return self._utility_slots
-
-    @property
-    def highest_internal(self) -> int:
-        return self._highest_internal
+        # no need for private attributes, we are handing out deep copies
+        self.name = ""
+        self.symbol = ""
+        self.loadout_template = dict()
+        self.base_shield_strength = 0
+        self.hull_mass = 0
+        self.utility_slots = 0
+        self.highest_internal = 0
 
     @staticmethod
     def create_from_json(json_ship: json) -> StarShip:
@@ -409,57 +331,48 @@ class StarShip(object):
         :return: newly created Ship object
         """
         ship = StarShip()
-        ship._name = json_ship["ship"]
-        ship._symbol = json_ship["symbol"]
-        ship._loadout_template = json_ship["loadout_template"]
-        ship._base_shield_strength = json_ship["baseShieldStrength"]
-        ship._hull_mass = json_ship["hullMass"]
-        ship._utility_slots = json_ship["utility_slots"]
-        ship._highest_internal = json_ship["highest_internal"]
+        ship.name = json_ship["ship"]
+        ship.symbol = json_ship["symbol"]
+        ship.loadout_template = json_ship["loadout_template"]
+        ship.base_shield_strength = json_ship["baseShieldStrength"]
+        ship.hull_mass = json_ship["hullMass"]
+        ship.utility_slots = json_ship["utility_slots"]
+        ship.highest_internal = json_ship["highest_internal"]
         return ship
 
 
 class LoadOut(object):
     def __init__(self, shield_generator: ShieldGenerator, ship: StarShip):
-        self._shield_generator = shield_generator
-        self._ship = ship
+        self.shield_generator = shield_generator
+        self.ship = ship
         self.boosters = None  # type: List[ShieldBoosterVariant]
-        self._shield_strength = self.__calculate_shield_strength()
+        self.shield_strength = self.__calculate_shield_strength()
 
     @property
     def ship_name(self):
-        if self._ship:
-            return self._ship.name
+        if self.ship:
+            return self.ship.name
         else:
             return "ship not set"
 
-    @property
-    def shield_strength(self) -> float:
-        return self._shield_strength
-
-    @property
-    def shield_generator(self) -> ShieldGenerator:
-        return self._shield_generator
-
-    # noinspection PyProtectedMember
     def __calculate_shield_strength(self):
         # formula taken from:
         # https://forums.frontier.co.uk/threads/the-one-formula-to-rule-them-all-the-mechanics-of-shield-and-thruster-mass-curves.300225/
         # https://github.com/EDCD/coriolis/blob/master/src/app/shipyard/Calculations.js
-        if self._shield_generator and self._ship:
-            min_mass = self._shield_generator._minmass
-            opt_mass = self._shield_generator._optmass
-            max_mass = self._shield_generator._maxmass
-            min_mul = self._shield_generator._minmul
-            opt_mul = self._shield_generator._optmul
-            max_mul = self._shield_generator._maxmul
-            hull_mass = self._ship.hull_mass
+        if self.shield_generator and self.ship:
+            min_mass = self.shield_generator.minmass
+            opt_mass = self.shield_generator.optmass
+            max_mass = self.shield_generator.maxmass
+            min_mul = self.shield_generator.minmul
+            opt_mul = self.shield_generator.optmul
+            max_mul = self.shield_generator.maxmul
+            hull_mass = self.ship.hull_mass
 
             xnorm = min(1.0, (max_mass - hull_mass) / (max_mass - min_mass))
             exponent = math.log((opt_mul - min_mul) / (max_mul - min_mul)) / math.log(min(1.0, (max_mass - opt_mass) / (max_mass - min_mass)))
             ynorm = math.pow(xnorm, exponent)
             mul = min_mul + ynorm * (max_mul - min_mul)
-            return round(self._ship.base_shield_strength * mul, 4)
+            return round(self.ship.base_shield_strength * mul, 4)
         else:
             return 0
 
@@ -472,7 +385,6 @@ class LoadOut(object):
             return self.calculate_total_values(*ShieldBoosterVariant.calculate_booster_bonuses(self.boosters))
         return self.calculate_total_values(1, 1, 1, 1)
 
-    # noinspection PyProtectedMember
     def calculate_total_values(self, exp_modifier, kin_modifier, therm_modifier, hitpoint_bonus) -> Tuple[float, float, float, float]:
         """
         Provide booster bonuses to calculate total shield values for the loadout
@@ -482,10 +394,10 @@ class LoadOut(object):
         :param hitpoint_bonus:  booster hitpoint modifier
         :return: exp_res, kin_res, therm_res, hp
         """
-        exp_res = (1 - self._shield_generator._explres) * exp_modifier
-        kin_res = (1 - self._shield_generator._kinres) * kin_modifier
-        therm_res = (1 - self._shield_generator._thermres) * therm_modifier
-        hp = self._shield_strength * hitpoint_bonus
+        exp_res = (1 - self.shield_generator.explres) * exp_modifier
+        kin_res = (1 - self.shield_generator.kinres) * kin_modifier
+        therm_res = (1 - self.shield_generator.thermres) * therm_modifier
+        hp = self.shield_strength * hitpoint_bonus
         return exp_res, kin_res, therm_res, hp
 
     def generate_loadout_event(self, default_sg: ShieldGenerator) -> Dict[str, Any]:
@@ -494,12 +406,12 @@ class LoadOut(object):
         :param default_sg: default ShieldGenerator to compare changes
         :return: loadout "event" as dictionary
         """
-        if not self._ship:
+        if not self.ship:
             return dict()
 
-        loadout_json = self._ship.loadout_template
+        loadout_json = self.ship.loadout_template
         modules = loadout_json["Modules"]
-        modules.append(self._shield_generator.create_loadout(default_sg, self._ship.highest_internal))
+        modules.append(self.shield_generator.create_loadout(default_sg, self.ship.highest_internal))
 
         for i, booster in enumerate(self.boosters):
             modules.append(booster.get_loadout_template_slot(i + 1))
@@ -564,10 +476,10 @@ class TestCase(object):
         self.absolute_dps = 0
         self.scb_hitpoints = 0
         self.guardian_hitpoints = 0
-        self.shield_booster_combinations = None  # type: List[ShieldBoosterVariant]
+        self.shield_booster_variants = None  # type: List[ShieldBoosterVariant]
         self.loadout_list = None  # type: List[LoadOut]
         self.number_of_boosters_to_test = 0
-        self._use_prismatics = True  # set in ShieldTester!
+        self._use_prismatics = True  # set in ShieldTester! call ShieldTester.set_loadouts_for_class()
 
     def get_output_string(self) -> str:
         """
@@ -594,7 +506,6 @@ class TestCase(object):
         output.append("")
         return Utility.format_output_string(output)
 
-    # noinspection PyProtectedMember
     @staticmethod
     def test_case(test_case: TestCase, booster_combinations: List[List[int]]) -> TestResult:
         """
@@ -619,17 +530,17 @@ class TestCase(object):
         guardian_hitpoints = test_case.guardian_hitpoints
 
         for booster_combination in booster_combinations:
-            boosters = [test_case.shield_booster_combinations[x] for x in booster_combination]
+            boosters = [test_case.shield_booster_variants[x] for x in booster_combination]
             # Do this here instead of for each loadout to save some time.
             exp_modifier, kin_modifier, therm_modifier, hitpoint_bonus = ShieldBoosterVariant.calculate_booster_bonuses(boosters)
 
             for loadout in test_case.loadout_list:
                 # can't use same function in LoadOut because of speed
-                exp_res = (1 - loadout._shield_generator._explres) * exp_modifier
-                kin_res = (1 - loadout._shield_generator._kinres) * kin_modifier
-                therm_res = (1 - loadout._shield_generator._thermres) * therm_modifier
-                hp = loadout._shield_strength * hitpoint_bonus
-                regen_rate = loadout._shield_generator._regen * (1.0 - damage_effectiveness)
+                exp_res = (1 - loadout.shield_generator.explres) * exp_modifier
+                kin_res = (1 - loadout.shield_generator.kinres) * kin_modifier
+                therm_res = (1 - loadout.shield_generator.thermres) * therm_modifier
+                hp = loadout.shield_strength * hitpoint_bonus
+                regen_rate = loadout.shield_generator.regen * (1.0 - damage_effectiveness)
 
                 actual_dps = damage_effectiveness * (
                         explosive_dps * exp_res +
@@ -670,7 +581,7 @@ class ShieldTester(object):
     CALLBACK_CANCELLED = 3
 
     def __init__(self):
-        self.__ships = dict()
+        self.__ships = dict()  # type: Dict[str, StarShip]
         self.__booster_variants = list()
         # key of outer dictionary is the type, key for inner dictionary is the class
         # and the value is a list of all engineered shield generator combinations of that class and type
@@ -700,16 +611,16 @@ class ShieldTester(object):
         Calculate number of tests based on shield booster variants and shield generator variants
         :return: number of tests or 0 if test_case is missing
         """
-        if test_case and test_case.shield_booster_combinations:
+        if test_case and test_case.shield_booster_variants:
             if not prelim or prelim < 1:
                 prelim = len(test_case.loadout_list)
 
-        if test_case and test_case.shield_booster_combinations:
+        if test_case and test_case.shield_booster_variants:
             if prelim < 1:
                 prelim = len(test_case.loadout_list)
 
-            result = math.factorial(len(test_case.shield_booster_combinations) + test_case.number_of_boosters_to_test - 1)
-            result = result / math.factorial(len(test_case.shield_booster_combinations) - 1) / math.factorial(test_case.number_of_boosters_to_test)
+            result = math.factorial(len(test_case.shield_booster_variants) + test_case.number_of_boosters_to_test - 1)
+            result = result / math.factorial(len(test_case.shield_booster_variants) - 1) / math.factorial(test_case.number_of_boosters_to_test)
             return int(result * min(len(test_case.loadout_list), prelim))
         return 0
 
@@ -748,7 +659,7 @@ class ShieldTester(object):
         :raises RuntimeError if test_case is missing
         """
         if test_case:
-            test_case.shield_booster_combinations = copy.deepcopy(list(filter(lambda x: not (x.can_skip and short_list), self.__booster_variants)))
+            test_case.shield_booster_variants = copy.deepcopy(list(filter(lambda x: not (x.can_skip and short_list), self.__booster_variants)))
         else:
             raise RuntimeError("No test case provided")
 
@@ -764,7 +675,6 @@ class ShieldTester(object):
             shield_generators = list()
             shield_generators += self.__shield_generators[ShieldGenerator.TYPE_BIWEAVE][module_class]
             shield_generators += self.__shield_generators[ShieldGenerator.TYPE_NORMAL][module_class]
-            # noinspection PyProtectedMember
             if prismatics:
                 shield_generators += self.__shield_generators[ShieldGenerator.TYPE_PRISMATIC][module_class]
 
@@ -773,7 +683,6 @@ class ShieldTester(object):
                 loadouts_to_test.append(LoadOut(sg, test_case.ship))
         return loadouts_to_test
 
-    # noinspection PyProtectedMember
     def get_compatible_shield_generator_classes(self, test_case: TestCase) -> Tuple[int, int]:
         """
         Find classes of shield generators that can be fitted to the selected ship.
@@ -785,7 +694,7 @@ class ShieldTester(object):
             sg_classes = list(self.__shield_generators["normal"].keys())
             sg_classes.sort()  # make sure they are in ascending order
             for sg_class in sg_classes:
-                if self.__shield_generators["normal"][sg_class][0]._maxmass > test_case.ship.hull_mass:
+                if self.__shield_generators["normal"][sg_class][0].maxmass > test_case.ship.hull_mass:
                     min_class = sg_class
                     break
             return min_class, test_case.ship.highest_internal
@@ -819,7 +728,6 @@ class ShieldTester(object):
             return copy.deepcopy(self.__unengineered_shield_generators.get(sg_variant.symbol))
         return None
 
-    # noinspection PyProtectedMember
     def compute(self, test_case: TestCase,
                 callback: function = None,
                 message_queue: queue.SimpleQueue = None,
@@ -841,7 +749,7 @@ class ShieldTester(object):
                        Using this option will alter test_case.loadout_list
         """
         self.__cancel = False
-        if not test_case or not test_case.shield_booster_combinations or not test_case.loadout_list:
+        if not test_case or not test_case.shield_booster_variants or not test_case.loadout_list:
             # nothing to test
             # TODO maybe raise exception
             print("Can't test nothing")
@@ -857,7 +765,7 @@ class ShieldTester(object):
         booster_amount = test_case.number_of_boosters_to_test
         booster_amount = max(0, min(test_case.ship.utility_slots, booster_amount))
         # use built in itertools and assume booster ids are starting at 1 and that there are no gaps
-        booster_combinations = list(itertools.combinations_with_replacement(range(0, len(test_case.shield_booster_combinations)), booster_amount))
+        booster_combinations = list(itertools.combinations_with_replacement(range(0, len(test_case.shield_booster_variants)), booster_amount))
 
         if prelim > 0 and prelim != len(test_case.loadout_list):
             output.append("--------- QUICK TEST RUN ---------")
@@ -873,11 +781,11 @@ class ShieldTester(object):
 
             for loadout in test_case.loadout_list:
                 # can't use same function in LoadOut because of speed
-                exp_res = 1 - loadout._shield_generator._explres
-                kin_res = 1 - loadout._shield_generator._kinres
-                therm_res = 1 - loadout._shield_generator._thermres
-                hp = loadout._shield_strength
-                regen_rate = loadout._shield_generator._regen * (1.0 - test_case.damage_effectiveness)
+                exp_res = 1 - loadout.shield_generator.explres
+                kin_res = 1 - loadout.shield_generator.kinres
+                therm_res = 1 - loadout.shield_generator.thermres
+                hp = loadout.shield_strength
+                regen_rate = loadout.shield_generator.regen * (1.0 - test_case.damage_effectiveness)
 
                 actual_dps = test_case.damage_effectiveness * (
                         test_case.explosive_dps * exp_res +
