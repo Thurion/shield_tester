@@ -56,10 +56,10 @@ class ShieldBoosterVariant(object):
         # no need for private attributes, we are handing out deep copies
         self.engineering = ""
         self.experimental = ""
-        self.shield_strength_bonus = ""
-        self.exp_res_bonus = ""
-        self.kin_res_bonus = ""
-        self.therm_res_bonus = ""
+        self.shield_strength_bonus = 0
+        self.exp_res_bonus = 0
+        self.kin_res_bonus = 0
+        self.therm_res_bonus = 0
         self.can_skip = False
         self.loadout_template = None  # type: Optional[Dict[str, Any]]
 
@@ -89,9 +89,9 @@ class ShieldBoosterVariant(object):
         booster.engineering = json_booster["engineering"]
         booster.experimental = json_booster["experimental"]
         booster.shield_strength_bonus = json_booster["shield_strength_bonus"]
-        booster.exp_res_bonus = json_booster["exp_res_bonus"]
-        booster.kin_res_bonus = json_booster["kin_res_bonus"]
-        booster.therm_res_bonus = json_booster["therm_res_bonus"]
+        booster.exp_res_bonus = 1 - json_booster["exp_res_bonus"]
+        booster.kin_res_bonus = 1 - json_booster["kin_res_bonus"]
+        booster.therm_res_bonus = 1 - json_booster["therm_res_bonus"]
         booster.can_skip = json_booster["can_skip"]
         booster.loadout_template = json_booster["loadout_template"]
         return booster
@@ -116,9 +116,9 @@ class ShieldBoosterVariant(object):
             boosters = shield_boosters
 
         for booster in boosters:
-            exp_modifier *= (1.0 - booster.exp_res_bonus)
-            kin_modifier *= (1.0 - booster.kin_res_bonus)
-            therm_modifier *= (1.0 - booster.therm_res_bonus)
+            exp_modifier *= booster.exp_res_bonus
+            kin_modifier *= booster.kin_res_bonus
+            therm_modifier *= booster.therm_res_bonus
             hitpoint_bonus += booster.shield_strength_bonus
 
         # Compensate for diminishing returns
