@@ -10,7 +10,6 @@ import multiprocessing
 import queue
 import gzip
 import base64
-import urllib.request
 from typing import List, Tuple, Any, Dict, Optional
 
 try:
@@ -910,12 +909,10 @@ class ShieldTester(object):
         :return:
         """
         if loadout and loadout.shield_generator:
-            loadout_str = loadout.generate_loadout_event(self.get_default_shield_generator_of_variant(loadout.shield_generator))
-            loadout_json = json.dumps(loadout_str).encode("utf-8")
-            loadout_gzip = gzip.compress(loadout_json)
-            loadout_b64 = base64.b64encode(loadout_gzip)
-            loadout_url = urllib.request.quote(loadout_b64)
-            return ShieldTester.CORIOLIS_URL.format(loadout_url)
+            loadout_dict = loadout.generate_loadout_event(self.get_default_shield_generator_of_variant(loadout.shield_generator))
+            loadout_gzip = gzip.compress(json.dumps(loadout_dict).encode("utf-8"))
+            loadout_b64 = base64.urlsafe_b64encode(loadout_gzip).decode("utf-8").replace('=', '%3D')
+            return ShieldTester.CORIOLIS_URL.format(loadout_b64)
         return ""
 
     def select_ship(self, name: str) -> Optional[TestCase]:
