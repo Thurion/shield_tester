@@ -3,6 +3,7 @@ import json
 import copy
 import math
 import os
+import sys
 import time
 import itertools
 import multiprocessing
@@ -867,7 +868,10 @@ class ShieldTester(object):
                 if _psutil_imported:
                     parent = psutil.Process()
                     for child in parent.children():
-                        child.nice(psutil.BELOW_NORMAL_PRIORITY_CLASS)
+                        if sys.platform == "win32":
+                            child.nice(psutil.BELOW_NORMAL_PRIORITY_CLASS)
+                        else:
+                            child.nice(10)
                 pool.close()
                 pool.join()
                 self.__pool = None
