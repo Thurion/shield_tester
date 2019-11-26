@@ -10,7 +10,7 @@ import multiprocessing
 import queue
 import gzip
 import base64
-from typing import List, Tuple, Any, Dict, Optional
+from typing import List, Tuple, Any, Dict, Optional, Set
 
 try:
     # noinspection PyUnresolvedReferences
@@ -50,8 +50,6 @@ class Utility(object):
 
 
 class ShieldBoosterVariant(object):
-    SLOT_TEMPLATE = "tinyhardpoint{}"
-
     def __init__(self):
         # no need for private attributes, we are handing out deep copies
         self.engineering = ""
@@ -74,7 +72,7 @@ class ShieldBoosterVariant(object):
         """
         if self.loadout_template:
             loadout = copy.deepcopy(self.loadout_template)
-            loadout["Slot"] = self.SLOT_TEMPLATE.format(slot)
+            loadout["Slot"] = f"tinyhardpoint{slot}"
             return loadout
         return dict()
 
@@ -133,8 +131,6 @@ class ShieldBoosterVariant(object):
 
 
 class ShieldGenerator(object):
-    SLOT_TEMPLATE = "slot01_size{}"
-
     CALC_NORMAL = 1
     CALC_RES = 2
     CALC_MASS = 3
@@ -291,11 +287,12 @@ class ShieldGenerator(object):
             modifiers.append(helper("ExplosiveResistance", default_sg.explres * 100, self.explres * 100))
         return modifiers
 
-    def create_loadout(self, default_sg: ShieldGenerator, slot_class: int) -> Dict[str, Any]:
+    def create_loadout(self, default_sg: ShieldGenerator, slot: str, module_class: int) -> Optional[Dict[str, Any]]:
         """
         Create loadout dictionary for use in Coriolis
         :param default_sg: non engineered ShieldGenerator for comparing values
-        :param slot_class: class of shield generator
+        :param slot: slot as used in loadout event (e.g. 9 when Slot09_Size4)
+        :param module_class: class as used in loadout event (e.g. 4 when Slot09_Size4)
         :return: dictionary containing module information about the shield generator
         """
         modifiers = self._create_modifier_templates(default_sg)
@@ -305,7 +302,7 @@ class ShieldGenerator(object):
                        "Modifiers": modifiers,
                        "ExperimentalEffect": self.experimental_symbol}
         loadout = {"Item": self.symbol,
-                   "Slot": self.SLOT_TEMPLATE.format(slot_class),
+                   "Slot": f"slot{slot:02d}_size{module_class}",
                    "On": True,
                    "Priority": 0,
                    "Engineering": engineering}
@@ -322,6 +319,14 @@ class StarShip(object):
         self.hull_mass = 0
         self.utility_slots = 0
         self.highest_internal = 0
+        self.internal_slot_layout = dict()  # type: Dict[int, int] # key: slot number (starting at 1), value: module class
+
+    def get_available_internal_slot(self, module_class: int, reverse: bool = False) -> Tuple[int, int]:
+        items = sorted(self.internal_slot_layout.items(), reverse=reverse)  # type: List[Tuple[int, int]]
+        for item in items:
+            if item[1] >= module_class:
+                return item
+        return 0, 0
 
     @staticmethod
     def create_from_json(json_ship: json) -> StarShip:
@@ -338,6 +343,13 @@ class StarShip(object):
         ship.hull_mass = json_ship["hullMass"]
         ship.utility_slots = json_ship["utility_slots"]
         ship.highest_internal = json_ship["highest_internal"]
+        internal_slot_layout = json_ship["slot_layout"]["internal"]
+
+        # check for military slots. shield generators can't go there
+        for i, slot in enumerate(internal_slot_layout):
+            if type(slot) == int:
+                ship.internal_slot_layout.setdefault(i + 1, slot)
+
         return ship
 
 
@@ -411,7 +423,7 @@ class LoadOut(object):
 
         loadout_json = self.ship.loadout_template
         modules = loadout_json["Modules"]
-        modules.append(self.shield_generator.create_loadout(default_sg, self.ship.highest_internal))
+        modules.append(self.shield_generator.create_loadout(default_sg, *self.ship.get_available_internal_slot(self.shield_generator.module_class, reverse=True)))
 
         for i, booster in enumerate(self.boosters):
             modules.append(booster.get_loadout_template_slot(i + 1))
@@ -697,9 +709,12 @@ class ShieldTester(object):
                 if self.__shield_generators["normal"][sg_class][0].maxmass > test_case.ship.hull_mass:
                     min_class = sg_class
                     break
-            return min_class, test_case.ship.highest_internal
-        else:
-            return 0, 0
+
+            min_free_slot = test_case.ship.get_available_internal_slot(min_class, reverse=True)[1]
+            max_free_slot = test_case.ship.get_available_internal_slot(test_case.ship.highest_internal)[1]
+            if min_free_slot > 0 and max_free_slot > 0:
+                return min(min_class, min_free_slot), max_free_slot
+        return 0, 0
 
     def set_loadouts_for_class(self, test_case: TestCase, module_class: int = 0, prismatics: bool = True):
         """
