@@ -1,4 +1,8 @@
-from typing import List, Any
+import base64
+import gzip
+import json
+import urllib.request
+from typing import List, Any, Dict
 
 
 class Utility(object):
@@ -27,3 +31,31 @@ class Utility(object):
             else:
                 out.append(st)
         return "\n".join(out)
+
+    # noinspection PyBroadException
+    @staticmethod
+    def get_loadouts_from_string(s: str) -> List[Dict[str, any]]:
+        r = list()
+        if not s:
+            return r
+
+        # 1st possibility: one loadout event spanning over multiple lines
+        try:
+            return [json.loads(s)]
+        except Exception:
+            # not a single json
+            pass
+
+        # multiple entries then
+        try:
+            lines = s.split("\n")
+            for line in lines:
+                if line.startswith("https://"):
+                    parts = line.split("=")
+                    r.append(json.loads(gzip.decompress(base64.b64decode(urllib.request.unquote_to_bytes(parts[1]))).decode("utf-8")))
+                else:
+                    r.append(json.loads(line))
+        except Exception:
+            pass
+
+        return r

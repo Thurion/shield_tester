@@ -7,9 +7,10 @@ import math
 import multiprocessing
 import os
 import queue
+import re
 import sys
 import time
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, List, Tuple, Optional, Any
 
 from .LoadOut import LoadOut
 from .ShieldBoosterVariant import ShieldBoosterVariant
@@ -39,6 +40,7 @@ class ShieldTester(object):
 
     def __init__(self):
         self.__ships = dict()  # type: Dict[str, StarShip]
+        self.__importedShips = dict()  # type: Dict[str, StarShip]
         self.__booster_variants = list()
         # key of outer dictionary is the type, key for inner dictionary is the class
         # and the value is a list of all engineered shield generator combinations of that class and type
@@ -60,7 +62,7 @@ class ShieldTester(object):
 
     @property
     def ship_names(self):
-        return [ship for ship in self.__ships.keys()]
+        return sorted([ship for ship in self.__importedShips.keys()]) + sorted([ship for ship in self.__ships.keys()])
 
     @staticmethod
     def calculate_number_of_tests(test_case: TestCase, prelim: int = 0) -> int:
@@ -310,8 +312,9 @@ class ShieldTester(object):
             for j in range(0, len(l), n):
                 yield l[j:j + n]
 
-        if self.__cpu_cores > 1 and (len(booster_combinations) * len(test_case.loadout_list)) > ShieldTester.MP_CHUNK_SIZE:
+        if self.__cpu_cores > 1 and (len(booster_combinations) * len(test_case.loadout_list)) > ShieldTester.MP_CHUNK_SIZE * 5:
             # 1 core is handling UI and this thread, the rest is working on running the calculations
+            # and don't use multiprocessing for a very small workload
             with multiprocessing.Pool(processes=self.__cpu_cores - 1) as pool:
                 self.__pool = pool
                 for chunk in chunks(booster_combinations, ShieldTester.MP_CHUNK_SIZE):
@@ -375,20 +378,24 @@ class ShieldTester(object):
             return ShieldTester.CORIOLIS_URL.format(loadout_b64)
         return ""
 
-    def select_ship(self, name: str) -> Optional[TestCase]:
+    def select_ship(self, name: str) -> TestCase:
         """
         Select a ship by its name. Get names from the property ship_names.
         This creates a new TestCase with the selected ship and the highest possible shield generator variants pre-selected.
         :param name: Name of the ship
         :return: True if loaded successfully, False otherwise
         """
+        if name not in self.__ships and name not in self.__importedShips:
+            raise RuntimeError("Could not select ship.")
+
         if name in self.__ships:
             test_case = TestCase(copy.deepcopy(self.__ships[name]))
-            self.set_loadouts_for_class(test_case)
-            test_case.number_of_boosters_to_test = test_case.ship.utility_slots
-            self.set_boosters_to_test(test_case, short_list=True)
-            return test_case
-        return None
+        else:
+            test_case = TestCase(copy.deepcopy(self.__importedShips[name]))
+        self.set_loadouts_for_class(test_case)
+        test_case.number_of_boosters_to_test = test_case.ship.utility_slots
+        self.set_boosters_to_test(test_case, short_list=True)
+        return test_case
 
     def cancel(self):
         self.__cancel = True
@@ -424,3 +431,56 @@ class ShieldTester(object):
                                                                                              sg_node["engineering"]["blueprints"],
                                                                                              sg_node["engineering"]["experimental_effects"])
                     sg_type_dict.setdefault(generator.module_class, generator_variants)
+
+    def import_loadout(self, l: Dict[str, Any]) -> bool:
+        """
+        Import a loadout event. The same ship name will overwrite a previous import of the same name.
+        :param l: dictionary of the imported loadout event
+        :return: True if successful
+        """
+        ship_symbol = l["Ship"]
+        imported_ship = None  # type: StarShip
+        for ship in self.__ships.values():
+            if ship_symbol.lower() == ship.symbol.lower():
+                imported_ship = copy.deepcopy(ship)
+                break
+        if not imported_ship:
+            return False  # can't import this ship
+
+        if "ShipName" in l:
+            name = l["ShipName"]
+        else:
+            name = imported_ship.name
+        if "ShipIdent" in l:
+            ident = l["ShipIdent"]
+        else:
+            ident = "Imported"
+        imported_ship.custom_name = f"{name} ({ident})"
+        imported_ship.loadout_template["Modules"] = copy.deepcopy(l["Modules"])
+
+        imported_ship.highest_internal = 0
+        items_to_remove = list()
+        for module in imported_ship.loadout_template["Modules"]:
+            if module["Slot"].lower().startswith("tinyhardpoint"):
+                # get amount of fitted shield boosters
+                if module["Item"].lower().startswith("hpt_shieldbooster_size0"):
+                    items_to_remove.append(module)
+                else:
+                    imported_ship.utility_slots_free.remove(int(module["Slot"][-1:]))  # remove free slot
+            elif module["Item"].lower().startswith("int_shieldgenerator_size"):
+                # get shield generator class
+                # template.shield_generator_slot = int(module["Slot"])[4:6]
+                imported_ship.highest_internal = int(module["Slot"][-1:])
+                items_to_remove.append(module)
+            elif re.match("slot[0-9]{2}_size[0-9]", module["Slot"].lower()):
+                slot_number = int(module["Slot"][4:6])
+                if slot_number in imported_ship.internal_slot_layout:
+                    # will fail when encountering a military only slot
+                    imported_ship.internal_slot_layout.pop(int(module["Slot"][4:6]))
+
+        for module in items_to_remove:
+            imported_ship.loadout_template["Modules"].remove(module)
+
+        imported_ship.utility_slots_free.sort()
+        self.__importedShips[imported_ship.custom_name] = imported_ship  # overwrite old imports with the same name
+        return True

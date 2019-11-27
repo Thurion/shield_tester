@@ -13,13 +13,6 @@ class LoadOut(object):
         self.boosters = None  # type: List[ShieldBoosterVariant]
         self.shield_strength = self.__calculate_shield_strength()
 
-    @property
-    def ship_name(self):
-        if self.ship:
-            return self.ship.name
-        else:
-            return "ship not set"
-
     def __calculate_shield_strength(self):
         # formula taken from:
         # https://forums.frontier.co.uk/threads/the-one-formula-to-rule-them-all-the-mechanics-of-shield-and-thruster-mass-curves.300225/
@@ -78,6 +71,9 @@ class LoadOut(object):
         modules = loadout_json["Modules"]
         modules.append(self.shield_generator.create_loadout(default_sg, *self.ship.get_available_internal_slot(self.shield_generator.module_class, reverse=True)))
 
-        for i, booster in enumerate(self.boosters):
-            modules.append(booster.get_loadout_template_slot(i + 1))
+        if len(self.boosters) > self.ship.utility_slots:
+            raise RuntimeError("Booster number mismatch")
+
+        for i in range(0, min(len(self.boosters), self.ship.utility_slots)):
+            modules.append(self.boosters[i].get_loadout_template_slot(self.ship.utility_slots_free[i]))
         return loadout_json

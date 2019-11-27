@@ -34,7 +34,9 @@ class TestCase(object):
         output = list()
         output.append("------------ TEST SETUP ------------")
         if self.loadout_list:
-            output.append(("Ship Type: ", f"[{self.loadout_list[0].ship_name}]"))
+            output.append(("Ship Type: ", f"[{self.loadout_list[0].ship.name}]"))
+            if self.loadout_list[0].ship.custom_name:
+                output.append(("Custom name: ", f"[{self.loadout_list[0].ship.custom_name}]"))
             output.append(("Shield Generator Size: ", f"[{self.loadout_list[0].shield_generator.module_class}]"))
         else:
             output.append(("Ship Type: ", "[NOT SET]"))
