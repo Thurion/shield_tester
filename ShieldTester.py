@@ -10,6 +10,7 @@ import queue
 import re
 import sys
 import time
+import unicodedata
 from typing import Dict, List, Tuple, Optional, Any
 
 from .LoadOut import LoadOut
@@ -83,6 +84,16 @@ class ShieldTester(object):
             return int(result * min(len(test_case.loadout_list), prelim))
         return 0
 
+    def slugify(self, value):
+        """
+        Normalizes string, converts to lowercase, removes non-alpha characters,
+        and converts spaces to hyphens.
+        """
+        value = unicodedata.normalize("NFKD", value)
+        value = re.sub("[^.()\[\]\w\s-]", "", value, flags=re.ASCII).strip()
+        value = re.sub("[\s]+", "_", value, flags=re.ASCII)
+        return value
+
     def write_log(self, test_case: TestCase, result: TestResult, filename: str = None, time_and_name: bool = False, include_coriolis: bool = False):
         """
         Write a log file with the test setup from a TestCase and the results from a TestResult.
@@ -96,7 +107,9 @@ class ShieldTester(object):
         if not filename:
             filename = time.strftime("%Y-%m-%d %H.%M.%S")
         elif time_and_name:
-            filename = "{name} {time}".format(name=filename, time=time.strftime("%Y-%m-%d %H.%M.%S"))
+            filename = f"{filename} {time.strftime('%Y-%m-%d %H.%M.%S')}"
+
+        filename = self.slugify(filename)
         with open(os.path.join(ShieldTester.LOG_DIRECTORY, filename + ".txt"), "a+") as logfile:
             logfile.write("Test run at: {}\n".format(time.strftime("%Y-%m-%d %H:%M:%S")))
             logfile.write(test_case.get_output_string())
