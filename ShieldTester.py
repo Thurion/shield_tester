@@ -482,7 +482,6 @@ class ShieldTester(object):
                     imported_ship.utility_slots_free.remove(int(module["Slot"][-1:]))  # remove free slot
             elif module["Item"].lower().startswith("int_shieldgenerator_size"):
                 # get shield generator class
-                # template.shield_generator_slot = int(module["Slot"])[4:6]
                 imported_ship.highest_internal = int(module["Slot"][-1:])
                 items_to_remove.append(module)
             elif re.match("slot[0-9]{2}_size[0-9]", module["Slot"].lower()):
@@ -495,5 +494,8 @@ class ShieldTester(object):
             imported_ship.loadout_template["Modules"].remove(module)
 
         imported_ship.utility_slots_free.sort()
+        min_sg, max_sg = self.get_compatible_shield_generator_classes(imported_ship)
+        if min_sg == 0 or max_sg == 0:
+            return False
         self.__importedShips[imported_ship.custom_name] = imported_ship  # overwrite old imports with the same name
         return True
