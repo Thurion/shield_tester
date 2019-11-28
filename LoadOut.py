@@ -1,4 +1,5 @@
 import math
+import copy
 from typing import List, Optional, Tuple, Dict, Any
 
 from .ShieldBoosterVariant import ShieldBoosterVariant
@@ -67,7 +68,7 @@ class LoadOut(object):
         if not self.ship:
             return dict()
 
-        loadout_json = self.ship.loadout_template
+        loadout_json = copy.deepcopy(self.ship.loadout_template)
         modules = loadout_json["Modules"]
         modules.append(self.shield_generator.create_loadout(default_sg, *self.ship.get_available_internal_slot(self.shield_generator.module_class, reverse=True)))
 
