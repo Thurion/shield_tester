@@ -33,7 +33,12 @@ except ImportError as error:
 class ShieldTester(object):
     MP_CHUNK_SIZE = 10000
     LOG_DIRECTORY = os.path.join(os.getcwd(), "Logs")
-    CORIOLIS_URL = "https://coriolis.io/import?data={}"
+
+    SERVICE_CORIOLIS = 0
+    SERVICE_EDSY = 1
+    SERVICE_URLS = ["https://coriolis.io/import?data={}",
+                    "https://edsy.org/#/I={}"]
+    SERVICE_NAMES = ["Coriolis", "EDSY"]
 
     CALLBACK_MESSAGE = 1
     CALLBACK_STEP = 2
@@ -118,7 +123,7 @@ class ShieldTester(object):
             if include_coriolis:
                 logfile.write("\n")
                 logfile.write("\n")
-                logfile.write(self.get_coriolis_link(result.loadout))
+                logfile.write(self.get_export_link(result.loadout))
 
             logfile.write("\n\n\n")
             logfile.flush()
@@ -378,17 +383,18 @@ class ShieldTester(object):
 
         return best_result
 
-    def get_coriolis_link(self, loadout: LoadOut) -> str:
+    def get_export_link(self, loadout: LoadOut, service: int = 0):
         """
-        Generate a link to coriolis to import the current shield build.
+        Generate a link to Coriolis or EDSY to import the current shield build.
         :param loadout: loadout containing the build (e.g. get from results)
+        :param service: use SERVICE_ constants
         :return:
         """
         if loadout and loadout.shield_generator:
             loadout_dict = loadout.generate_loadout_event(self.get_default_shield_generator_of_variant(loadout.shield_generator))
             loadout_gzip = gzip.compress(json.dumps(loadout_dict).encode("utf-8"))
             loadout_b64 = base64.urlsafe_b64encode(loadout_gzip).decode("utf-8").replace('=', '%3D')
-            return ShieldTester.CORIOLIS_URL.format(loadout_b64)
+            return ShieldTester.SERVICE_URLS[service].format(loadout_b64)
         return ""
 
     def select_ship(self, name: str) -> TestCase:
@@ -462,10 +468,12 @@ class ShieldTester(object):
 
         if "ShipName" in l:
             name = l["ShipName"]
+            imported_ship.loadout_template["ShipName"] = l["ShipName"]
         else:
             name = imported_ship.name
         if "ShipIdent" in l:
             ident = l["ShipIdent"]
+            imported_ship.loadout_template["ShipIdent"] = l["ShipIdent"]
         else:
             ident = "Imported"
         imported_ship.custom_name = f"{name} ({ident})"
