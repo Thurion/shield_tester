@@ -50,12 +50,19 @@ class Utility(object):
         try:
             lines = s.split("\n")
             for line in lines:
-                if line.startswith("https://"):
-                    parts = line.split("=")
-                    r.append(json.loads(gzip.decompress(base64.b64decode(urllib.request.unquote_to_bytes(parts[1]))).decode("utf-8")))
-                else:
+                if line.startswith("{"):
+                    # could be json
                     r.append(json.loads(line))
+                else:
+                    if line.startswith("https://"):
+                        text = line.split("=")[1]
+                    else:
+                        # maybe someone removed the first part of the URLs and left the compressed loadout event
+                        text = line
+                    r.append(json.loads(gzip.decompress(base64.b64decode(urllib.request.unquote_to_bytes(text))).decode("utf-8")))
         except Exception:
             pass
 
+        if len(r) == 0:
+            raise RuntimeError("Not a valid import. See readme for further details.")
         return r
