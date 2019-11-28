@@ -451,11 +451,11 @@ class ShieldTester(object):
                                                                                              sg_node["engineering"]["experimental_effects"])
                     sg_type_dict.setdefault(generator.module_class, generator_variants)
 
-    def import_loadout(self, l: Dict[str, Any]) -> bool:
+    def import_loadout(self, l: Dict[str, Any]) -> str:
         """
         Import a loadout event. The same ship name will overwrite a previous import of the same name.
         :param l: dictionary of the imported loadout event
-        :return: True if successful
+        :return: Name of imported ship
         """
         ship_symbol = l["Ship"]
         imported_ship = None  # type: StarShip
@@ -464,7 +464,7 @@ class ShieldTester(object):
                 imported_ship = copy.deepcopy(ship)
                 break
         if not imported_ship:
-            return False  # can't import this ship
+            return ""  # can't import this ship
 
         if "ShipName" in l:
             name = l["ShipName"]
@@ -504,6 +504,6 @@ class ShieldTester(object):
         imported_ship.utility_slots_free.sort()
         min_sg, max_sg = self.get_compatible_shield_generator_classes(imported_ship)
         if min_sg == 0 or max_sg == 0:
-            return False
+            return ""
         self.__importedShips[imported_ship.custom_name] = imported_ship  # overwrite old imports with the same name
-        return True
+        return imported_ship.custom_name
