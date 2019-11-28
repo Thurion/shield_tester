@@ -155,24 +155,24 @@ class ShieldTester(object):
                 loadouts_to_test.append(LoadOut(sg, test_case.ship))
         return loadouts_to_test
 
-    def get_compatible_shield_generator_classes(self, test_case: TestCase) -> Tuple[int, int]:
+    def get_compatible_shield_generator_classes(self, ship: StarShip) -> Tuple[int, int]:
         """
         Find classes of shield generators that can be fitted to the selected ship.
-        :param test_case
+        :param ship
         :return: tuple: (min class, max class)
         """
-        if test_case and test_case.ship:
+        if ship:
             min_class = 0
             sg_classes = list(self.__shield_generators["normal"].keys())
             sg_classes.sort()  # make sure they are in ascending order
             for sg_class in sg_classes:
-                if self.__shield_generators["normal"][sg_class][0].maxmass > test_case.ship.hull_mass:
+                if self.__shield_generators["normal"][sg_class][0].maxmass > ship.hull_mass:
                     min_class = sg_class
                     break
 
-            min_free_slot = test_case.ship.get_available_internal_slot(min_class, reverse=True)[1]
-            max_free_slot = test_case.ship.get_available_internal_slot(test_case.ship.highest_internal)[1]
-            if min_free_slot > 0 and max_free_slot > 0:
+            min_free_slot = ship.get_available_internal_slot(min_class, reverse=True)[1] or 0
+            max_free_slot = ship.get_available_internal_slot(ship.highest_internal)[1] or 0
+            if min_free_slot >= min_class <= max_free_slot:
                 return min(min_class, min_free_slot), max_free_slot
         return 0, 0
 
@@ -187,7 +187,7 @@ class ShieldTester(object):
         if not test_case:
             raise RuntimeError("test_case is missing")
 
-        min_class, max_class = self.get_compatible_shield_generator_classes(test_case)
+        min_class, max_class = self.get_compatible_shield_generator_classes(test_case.ship)
         sg_class = module_class if module_class in range(min_class, max_class + 1) else max_class
         if sg_class > 0:
             test_case.loadout_list = self.__create_loadouts(test_case, sg_class, prismatics)
