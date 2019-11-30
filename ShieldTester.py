@@ -175,10 +175,9 @@ class ShieldTester(object):
                     min_class = sg_class
                     break
 
-            min_free_slot = ship.get_available_internal_slot(min_class, reverse=True)[1] or 0
             max_free_slot = ship.get_available_internal_slot(ship.highest_internal)[1] or 0
-            if min_free_slot >= min_class <= max_free_slot:
-                return min(min_class, min_free_slot), max_free_slot
+            if min_class and min_class <= max_free_slot:
+                return min_class, max_free_slot
         return 0, 0
 
     def set_loadouts_for_class(self, test_case: TestCase, module_class: int = 0, prismatics: bool = True):
