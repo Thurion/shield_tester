@@ -11,7 +11,7 @@ import re
 import sys
 import time
 import unicodedata
-from typing import Dict, List, Tuple, Optional, Any
+from typing import Dict, List, Tuple, Optional, Any, Union
 
 from .LoadOut import LoadOut
 from .ShieldBoosterVariant import ShieldBoosterVariant
@@ -34,11 +34,9 @@ class ShieldTester(object):
     MP_CHUNK_SIZE = 10000
     LOG_DIRECTORY = os.path.join(os.getcwd(), "Logs")
 
-    SERVICE_CORIOLIS = 0
-    SERVICE_EDSY = 1
-    SERVICE_URLS = ["https://coriolis.io/import?data={}",
-                    "https://edsy.org/#/I={}"]
-    SERVICE_NAMES = ["Coriolis", "EDSY"]
+    EXPORT_SERVICES = {"Coriolis": (Utility.create_export_url, "https://coriolis.io/import?data={}"),
+                       "EDSY": (Utility.create_export_url, "https://edsy.org/#/I={}"),
+                       "SLEF": (Utility.create_slef_data, "{}")}
 
     CALLBACK_MESSAGE = 1
     CALLBACK_STEP = 2
@@ -99,14 +97,14 @@ class ShieldTester(object):
         value = re.sub("[\s]+", "_", value, flags=re.ASCII)
         return value
 
-    def write_log(self, test_case: TestCase, result: TestResult, filename: str = None, time_and_name: bool = False, include_coriolis: bool = False):
+    def write_log(self, test_case: TestCase, result: TestResult, filename: str = None, time_and_name: bool = False, include_service: str = ""):
         """
         Write a log file with the test setup from a TestCase and the results from a TestResult.
         :param test_case: TestCase for information about setup
         :param result: TestResult for information about results
         :param filename: optional filename to append new log (omit file ending)
         :param time_and_name: if set to True, the file name will be <<name> <timestamp>>.txt
-        :param include_coriolis: optional link to Coriolis
+        :param include_service: export to chosen service as string (e.g. an URL)
         """
         os.makedirs(ShieldTester.LOG_DIRECTORY, exist_ok=True)
         if not filename:
@@ -120,10 +118,10 @@ class ShieldTester(object):
             logfile.write(test_case.get_output_string())
             logfile.write("\n")
             logfile.write(result.get_output_string(test_case.guardian_hitpoints))
-            if include_coriolis:
+            if include_service:
                 logfile.write("\n")
                 logfile.write("\n")
-                logfile.write(self.get_export_link(result.loadout))
+                logfile.write(self.get_export(result.loadout, service=include_service))
 
             logfile.write("\n\n\n")
             logfile.flush()
@@ -382,18 +380,18 @@ class ShieldTester(object):
 
         return best_result
 
-    def get_export_link(self, loadout: LoadOut, service: int = 0):
+    def get_export(self, loadout: LoadOut, service: str = "") -> Union[Dict[str, Any], str]:
         """
         Generate a link to Coriolis or EDSY to import the current shield build.
+        When the SLEF service is used, a dictionary containing the "data" node will be returned
         :param loadout: loadout containing the build (e.g. get from results)
-        :param service: use SERVICE_ constants
-        :return:
+        :param service: use SERVICE_ constants, defaults to Coriolis
+        :return: string or dictionary based on the service used
         """
         if loadout and loadout.shield_generator:
             loadout_dict = loadout.generate_loadout_event(self.get_default_shield_generator_of_variant(loadout.shield_generator))
-            loadout_gzip = gzip.compress(json.dumps(loadout_dict).encode("utf-8"))
-            loadout_b64 = base64.urlsafe_b64encode(loadout_gzip).decode("utf-8").replace('=', '%3D')
-            return ShieldTester.SERVICE_URLS[service].format(loadout_b64)
+            s = ShieldTester.EXPORT_SERVICES.get(service, list(ShieldTester.EXPORT_SERVICES.keys())[0])
+            return s[0](loadout_dict, s[1])
         return ""
 
     def select_ship(self, name: str) -> TestCase:
@@ -453,8 +451,10 @@ class ShieldTester(object):
     def import_loadout(self, l: Dict[str, Any]) -> str:
         """
         Import a loadout event. The same ship name will overwrite a previous import of the same name.
+        SLEF will also work but only the information in the "data" node will be accepted.
+        The ship won't be imported if a shield generator can't be fitted.
         :param l: dictionary of the imported loadout event
-        :return: Name of imported ship
+        :return: Name of imported ship or empty string if import failed
         """
         ship_symbol = l["Ship"]
         imported_ship = None  # type: StarShip
@@ -465,12 +465,12 @@ class ShieldTester(object):
         if not imported_ship:
             return ""  # can't import this ship
 
-        if "ShipName" in l:
+        if "ShipName" in l and l["ShipName"]:
             name = l["ShipName"]
             imported_ship.loadout_template["ShipName"] = l["ShipName"]
         else:
             name = imported_ship.name
-        if "ShipIdent" in l:
+        if "ShipIdent" in l and l["ShipIdent"]:
             ident = l["ShipIdent"]
             imported_ship.loadout_template["ShipIdent"] = l["ShipIdent"]
         else:

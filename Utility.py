@@ -39,9 +39,13 @@ class Utility(object):
         if not s:
             return r
 
-        # 1st possibility: one loadout event spanning over multiple lines
+        # 1st possibility: one loadout event spanning over multiple lines, multiple loadout events or SLEF
         try:
-            return [json.loads(s)]
+            j = json.loads(s)
+            if type(j) == dict:
+                return [j]
+            else:
+                return j
         except Exception:
             # not a single json
             pass
@@ -66,3 +70,13 @@ class Utility(object):
         if len(r) == 0:
             raise RuntimeError("Not a valid import. See readme for further details.")
         return r
+
+    @staticmethod
+    def create_export_url(d: Dict[str, Any], url: str) -> str:
+        loadout_gzip = gzip.compress(json.dumps(d).encode("utf-8"))
+        loadout_b64 = base64.urlsafe_b64encode(loadout_gzip).decode("utf-8").replace('=', '%3D')
+        return url.format(loadout_b64)
+
+    @staticmethod
+    def create_slef_data(d: Dict[str, Any], url: str) -> Dict[str, Any]:
+        return d

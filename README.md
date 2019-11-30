@@ -30,6 +30,7 @@ Here is a working but probably incomplete example:
 ```python
 import shield_tester as st
 
+
 def main():
     tester = st.ShieldTester()
     tester.load_data("data.json")
@@ -46,7 +47,7 @@ def main():
     # get some information
     print("Number of boosters: {}".format(test_case.ship.utility_slots))
     # can call without test_case, then internally stored test_case will be used
-    min_class, max_class = tester.get_compatible_shield_generator_classes(test_case)
+    min_class, max_class = tester.get_compatible_shield_generator_classes(test_case.ship)
     print("Can fit class {min} to {max} shield generators".format(min=min_class, max=max_class))
 
     # set defender data
@@ -78,14 +79,18 @@ def main():
         # test_result has no access to the setup and those values are not stored
         print(test_result.get_output_string(test_case.guardian_hitpoints))
 
+        # get services we can export to
+        print(list(st.ShieldTester.EXPORT_SERVICES.keys()))
+
         # write the logfile
-        tester.write_log(test_case, test_result, filename="my test", time_and_name=True, include_coriolis=True)
+        tester.write_log(test_case, test_result, filename="my test", time_and_name=True, include_service="Coriolis")
 
         # in case we want to do something with the coriolis link
-        link_to_coriolis = tester.get_coriolis_link(test_result.best_loadout)
+        link_to_coriolis = tester.get_export(test_result.loadout, service="Coriolis")
         print(link_to_coriolis)
     else:
         print("Something went wrong...")
+
 
 if __name__ == '__main__':
     main()
