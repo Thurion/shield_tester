@@ -95,3 +95,6 @@ def main():
 if __name__ == '__main__':
     main()
 ```
+
+### Where to get the data.json from?
+There are 2 choices: Either copy it from one of the releases of https://github.com/Thurion/D2EA_Shield_tester/releases or use https://github.com/Thurion/Shield-Tester-Data to generate it yourself.
